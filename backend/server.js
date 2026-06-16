@@ -69,7 +69,7 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
 
         // 3. Request the generation from the AI
         const model = genAI.getGenerativeModel({ 
-            model: "gemini-3.1-pro",
+            model: "gemini-2.5-pro-tts",
             generationConfig: { responseMimeType: "application/json" }
         });
 
