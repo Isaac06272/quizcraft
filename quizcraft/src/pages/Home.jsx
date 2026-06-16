@@ -19,7 +19,7 @@ export default function Home() {
       formData.append('studyMode', userSettings.studyMode);
       formData.append('itemCount', userSettings.itemCount);
 
-      const response = await fetch('http://localhost:5000/api/generate', {
+      const response = await fetch('https://quizcraft-backend-yoca.onrender.com/api/generate', {
         method: 'POST',
         body: formData,
       });
