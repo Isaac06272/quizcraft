@@ -7,36 +7,49 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { logInWithGoogle, logOut } from './firebase';
 
 // Extract the Navbar into a sub-component so it can use the Auth hook
+// Inside src/App.jsx, update the NavBar function:
 function NavBar() {
   const { currentUser } = useAuth();
 
   return (
-    <nav className="w-full p-6 flex justify-between items-center border-b border-purple-900/30 bg-background/80 backdrop-blur-md sticky top-0 z-50">
-      <Link to="/" className="flex items-center gap-2 group">
-        <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary to-accent flex items-center justify-center font-bold text-xl transition-transform group-hover:scale-105">
-          Q
-        </div>
-        <span className="text-2xl font-bold tracking-wide">QuizCraft</span>
-      </Link>
+    <nav className="relative w-full px-8 py-4 flex justify-between items-center bg-[#0f0a1c]/70 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50 transition-all">
       
-      <div className="hidden md:flex gap-6 text-sm font-medium text-gray-300">
-        <Link to="/" className="hover:text-primary transition-colors">Home</Link>
+      {/* Left Area: Logo */}
+      <div className="flex-1 flex justify-start">
+        <Link to="/" className="flex items-center gap-3 group">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center font-black text-xl shadow-[0_0_20px_rgba(139,92,246,0.3)] group-hover:shadow-[0_0_25px_rgba(217,70,239,0.5)] transition-all duration-300">
+            Q
+          </div>
+          <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
+            QuizCraft
+          </span>
+        </Link>
+      </div>
+      
+      {/* PERFECT CENTER: Nav Links */}
+      <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 gap-10 text-sm font-bold text-gray-400">
+        <Link to="/" className="hover:text-white transition-colors">Home</Link>
         {currentUser && (
-          <Link to="/library" className="hover:text-primary transition-colors">My Library</Link>
+          <Link to="/library" className="hover:text-white transition-colors">My Library</Link>
         )}
       </div>
 
-      <div>
+      {/* Right Area: Auth */}
+      <div className="flex-1 flex justify-end">
         {currentUser ? (
           <div className="flex items-center gap-4">
+            <div className="hidden sm:block text-right mr-2">
+              <p className="text-sm font-bold text-white leading-tight">{currentUser.displayName}</p>
+              <p className="text-xs text-gray-400">Student</p>
+            </div>
             <img 
               src={currentUser.photoURL} 
               alt="Profile" 
-              className="w-10 h-10 rounded-full border-2 border-primary p-0.5"
+              className="w-10 h-10 rounded-full border-2 border-violet-500 p-0.5 shadow-lg"
             />
             <button 
               onClick={logOut}
-              className="px-4 py-2 rounded-lg bg-card border border-purple-700 hover:bg-red-500/20 hover:border-red-500 transition-colors text-sm font-medium"
+              className="px-4 py-2 rounded-lg bg-white/5 hover:bg-red-500/20 text-gray-300 hover:text-red-400 transition-all text-sm font-bold"
             >
               Log Out
             </button>
@@ -44,9 +57,9 @@ function NavBar() {
         ) : (
           <button 
             onClick={logInWithGoogle}
-            className="px-6 py-2 rounded-full bg-gradient-to-r from-primary to-accent text-white font-bold shadow-[0_0_10px_rgba(217,70,239,0.3)] hover:opacity-90 transition-opacity"
+            className="px-6 py-2.5 rounded-full bg-white text-[#0f0a1c] font-bold shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:shadow-[0_0_25px_rgba(255,255,255,0.4)] hover:scale-105 transition-all"
           >
-            Login with Google
+            Sign In
           </button>
         )}
       </div>
