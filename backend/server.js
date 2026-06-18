@@ -1,103 +1,131 @@
-import express from 'express';
-import cors from 'cors';
-import multer from 'multer';
-import dotenv from 'dotenv';
-import { GoogleGenerativeAI } from '@google/generative-ai';
-import { GoogleAIFileManager } from '@google/generative-ai/server';
-import fs from 'fs';
-import mammoth from 'mammoth'; // Added our new Word Doc reader!
+const express = require('express');
+const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const Groq = require('groq-sdk');
 
-dotenv.config();
-
+// Initialize Express app
 const app = express();
+const PORT = process.env.PORT || 5000;
+
+// Initialize Groq SDK with environment variable
+const groq = new Groq({
+    apiKey: process.env.GROQ_API_KEY
+});
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-const upload = multer({ dest: 'uploads/' });
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+// Ensure 'uploads' directory exists safely in production
+const uploadDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
 
+// Configure Multer for file uploads
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, Date.now() + '-' + file.originalname);
+    }
+});
+const upload = multer({ storage: storage });
+
+// Helper function to extract text from file
+// (Replace this dummy implementation if you use pdf-parse or mammoth.js)
+function extractTextFromFile(filePath, mimeType) {
+    if (mimeType === 'text/plain') {
+        return fs.readFileSync(filePath, 'utf8');
+    }
+    // Fallback/Placeholder: if you have pdf-parse installed, parse it here.
+    // For now, reading it as plain text or returning a message.
+    return fs.readFileSync(filePath, 'utf8'); 
+}
+
+// --- API ROUTES ---
+
+// Health check root route (prevents the 404 error on Render's homepage)
+app.get('/', (req, res) => {
+    res.send('QuizCraft Backend Server is Awake and Live on Groq!');
+});
+
+// The Core Generation Route
 app.post('/api/generate', upload.single('file'), async (req, res) => {
     try {
-        const { studyMode, itemCount } = req.body;
-        const file = req.file;
-
-        if (!file) return res.status(400).json({ error: "No file uploaded" });
-
-        console.log(`Processing ${file.originalname} for ${itemCount} ${studyMode}s...`);
-
-        // 1. Define our exact instructions
-        let prompt = "";
-        if (studyMode === 'quiz') {
-            prompt = `Analyze the provided material and create a multiple-choice quiz with exactly ${itemCount} questions. 
-            Return ONLY a JSON array of objects. Each object must have exactly these keys: 
-            "id" (number), "question" (string), "options" (array of exactly 4 strings), "correctAnswer" (string matching one of the options).`;
-        } else {
-            prompt = `Analyze the provided material and create exactly ${itemCount} flashcards. 
-            Return ONLY a JSON array of objects. Each object must have exactly these keys: 
-            "id" (number), "question" (string), "answer" (string).`;
+        // 1. Validate file upload
+        if (!req.file) {
+            return res.status(400).json({ error: 'No file uploaded.' });
         }
 
-        const contentPayload = [];
+        // 2. Parse user configuration sent from frontend
+        // Handles fallback defaults if options aren't provided
+        const itemCount = req.body.itemCount || 5;
+        const studyMode = req.body.studyMode || 'multiple-choice quiz';
 
-        // 2. Handle the file based on its type!
-        if (file.originalname.endsWith('.docx') || file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
-            console.log("Word Document detected. Extracting text manually...");
-            
-            // Crack open the Word Doc and extract the raw text
-            const docxResult = await mammoth.extractRawText({ path: file.path });
-            
-            // Pass the extracted text directly to Gemini
-            contentPayload.push({ text: `Here is the document text to analyze:\n\n${docxResult.value}\n\n` });
-        } else {
-            console.log("PDF or TXT detected. Uploading to Gemini File API...");
-            
-            const uploadResponse = await fileManager.uploadFile(file.path, {
-                mimeType: file.mimetype,
-                displayName: file.originalname,
-            });
-            contentPayload.push({
-                fileData: {
-                    mimeType: uploadResponse.file.mimeType,
-                    fileUri: uploadResponse.file.uri
-                }
-            });
+        console.log(`Processing file: ${req.file.filename} for a ${itemCount}-item ${studyMode}...`);
+
+        // 3. Extract text content from the file
+        const filePath = req.file.path;
+        let extractedText = '';
+        
+        try {
+            extractedText = extractTextFromFile(filePath, req.file.mimetype);
+        } catch (err) {
+            console.error('Failed to extract text from file:', err);
+            return res.status(500).json({ error: 'Failed to read the uploaded document content.' });
+        } finally {
+            // Clean up the file from the server immediately after reading it
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+            }
         }
 
-        // Add our prompt instructions to the payload
-        contentPayload.push({ text: prompt });
+        // Quick check to prevent sending empty prompts to Groq
+        if (!extractedText || extractedText.trim().length === 0) {
+            return res.status(400).json({ error: 'The uploaded file appears to be empty.' });
+        }
 
-        // 3. Request the generation from the AI
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-2.5-flash",
-            generationConfig: { responseMimeType: "application/json" }
+        // 4. Construct the prompt telling Groq exactly what to build
+        const prompt = `You are a strict academic study assistant. Your job is to create a ${itemCount} item ${studyMode} based entirely on the source text provided below. 
+        
+        You must output ONLY a valid, raw JSON array containing the items without markdown blocks, commentary, or extra text.
+        
+        Source Text:
+        ${extractedText}`;
+
+        // 5. Query the blazing-fast Groq LPU engine using Meta's massive Llama 3 model
+        const chatCompletion = await groq.chat.completions.create({
+            messages: [
+                {
+                    role: "user",
+                    content: prompt,
+                },
+            ],
+            model: "llama-3.3-70b-versatile",
+            response_format: { type: "json_object" }, // Guarantees structural JSON output
         });
 
-        const result = await model.generateContent(contentPayload);
+        // 6. Grab the raw content from the model's response
+        const aiResponseText = chatCompletion.choices[0]?.message?.content || "";
 
-        // 4. Delete the temporary file from your local server
-        fs.unlinkSync(file.path);
-
-        // 5. Send the structured data back to React
-        let rawText = result.response.text();
-        
-        if (rawText.startsWith("```json")) {
-            rawText = rawText.replace(/^```json\n/, '').replace(/\n```$/, '');
-        }
-
-        const generatedData = JSON.parse(rawText);
+        // 7. Parse string to JSON object and send back to the frontend
+        const generatedData = JSON.parse(aiResponseText);
         res.json(generatedData);
 
     } catch (error) {
-        console.error("Error generating content:", error);
-        
-        // Safety cleanup: delete file even if an error crashes the request
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
-        res.status(500).json({ error: "Failed to generate content." });
+        console.error('Groq Generation Backend Crash:', error);
+        res.status(500).json({ 
+            error: 'An internal server error occurred while processing the AI generation.', 
+            details: error.message 
+        });
     }
 });
 
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on http://localhost:${PORT}`));
+// Start the Express Server
+app.listen(PORT, () => {
+    console.log(`Server is running successfully on port ${PORT}`);
+});
