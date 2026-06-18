@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import UploadSection from '../components/UploadSection';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { db, logInWithGoogle } from '../firebase'; // IMPORTED logInWithGoogle HERE
+import { db } from '../firebase'; // Removed logInWithGoogle since we no longer need it here
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import { FolderPlus, Save, Folder, Plus, Lock } from 'lucide-react'; // ADDED Lock ICON
+import { FolderPlus, Save, Folder, Plus, Lock } from 'lucide-react';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -161,7 +161,6 @@ export default function Home() {
           </div>
           
           <div className="w-full">
-            {/* --- NEW: CONDITIONAL RENDERING BASED ON LOGIN STATUS --- */}
             {currentUser ? (
               <UploadSection onStart={handleStartGeneration} />
             ) : (
@@ -170,18 +169,13 @@ export default function Home() {
                   <Lock size={32} />
                 </div>
                 <h2 className="text-3xl font-extrabold text-white mb-3">Unlock AI Generation</h2>
-                <p className="text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
-                  Sign in to upload your documents, generate custom study sets, and save them permanently to your personal library.
+                
+                {/* UPDATED: Removed the button and adjusted the text to guide them to the Navbar */}
+                <p className="text-gray-400 max-w-md mx-auto leading-relaxed">
+                  Please use the <strong className="text-white">Sign In</strong> button at the top right to upload your documents, generate custom study sets, and save them permanently to your personal library.
                 </p>
-                <button
-                  onClick={logInWithGoogle}
-                  className="cursor-pointer px-8 py-4 rounded-xl bg-white text-[#0f0a1c] font-black hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:-translate-y-1"
-                >
-                  Sign In to Continue
-                </button>
               </div>
             )}
-            {/* -------------------------------------------------------- */}
           </div>
 
           <p className="text-sm md:text-base text-gray-500 max-w-xl mx-auto text-center mt-6 leading-relaxed">
@@ -191,6 +185,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* SAVE MATERIAL MODAL */}
       {saveModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-[#1a1333] border border-purple-900/50 rounded-3xl p-8 w-full max-w-lg shadow-[0_0_50px_rgba(139,92,246,0.15)] transform transition-all">
