@@ -2,7 +2,10 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Trophy, ArrowRight, CheckCircle2, XCircle, RotateCcw, Home as HomeIcon } from 'lucide-react';
+import { Trophy, ArrowRight, CheckCircle2, XCircle, RotateCcw, Home as HomeIcon, Shuffle } from 'lucide-react';
+
+// --- NEW: Helper function to scramble arrays ---
+const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
 
 export default function Quiz() {
   const location = useLocation();
@@ -10,13 +13,16 @@ export default function Quiz() {
 
   const { questions, materialId, title, savedScore } = location.state || { questions: [] };
 
+  // --- NEW: Display state so we can shuffle without permanently mutating the database data ---
+  const [displayQuestions, setDisplayQuestions] = useState(questions);
+
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
   const [isAnswerSubmitted, setIsAnswerSubmitted] = useState(false);
   const [score, setScore] = useState(0);
   const [isFinished, setIsFinished] = useState(false);
 
-  if (!questions || questions.length === 0) {
+  if (!displayQuestions || displayQuestions.length === 0) {
     return (
       <div className="relative flex flex-col items-center justify-center min-h-[60vh]">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-violet-600/20 rounded-full blur-[100px] -z-10" />
@@ -31,7 +37,7 @@ export default function Quiz() {
     );
   }
 
-  const currentQuestion = questions[currentQuestionIndex];
+  const currentQuestion = displayQuestions[currentQuestionIndex];
 
   // Auto-save the best score to Firestore
   useEffect(() => {
@@ -68,14 +74,28 @@ export default function Quiz() {
     setSelectedAnswer(null);
     setIsAnswerSubmitted(false);
 
-    if (currentQuestionIndex + 1 < questions.length) {
+    if (currentQuestionIndex + 1 < displayQuestions.length) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
       setIsFinished(true);
     }
   };
 
-  const handleRestart = () => {
+  // --- NEW: Advanced Restart Handler ---
+  const handleRestart = (shouldShuffle = false) => {
+    if (shouldShuffle) {
+      // 1. Scramble the order of the questions
+      // 2. Map through each question and scramble the 4 multiple-choice options!
+      const scrambledQuiz = shuffleArray(questions).map(q => ({
+        ...q,
+        options: shuffleArray(q.options)
+      }));
+      setDisplayQuestions(scrambledQuiz);
+    } else {
+      // Reset to default original order
+      setDisplayQuestions(questions);
+    }
+    
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setIsAnswerSubmitted(false);
@@ -85,7 +105,7 @@ export default function Quiz() {
 
   // --- SUMMARY SCREEN ---
   if (isFinished) {
-    const percentage = Math.round((score / questions.length) * 100);
+    const percentage = Math.round((score / displayQuestions.length) * 100);
     
     return (
       <div className="relative max-w-2xl mx-auto mt-12 p-10 bg-[#1a1333]/80 backdrop-blur-xl rounded-3xl border border-white/10 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
@@ -101,7 +121,7 @@ export default function Quiz() {
 
         <div className="bg-[#0f0a1c] border border-white/5 rounded-2xl p-8 max-w-sm mx-auto mb-10 shadow-inner">
           <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400 mb-2">
-            {score} <span className="text-3xl text-gray-600">/ {questions.length}</span>
+            {score} <span className="text-3xl text-gray-600">/ {displayQuestions.length}</span>
           </div>
           <p className="text-base font-bold text-gray-400 uppercase tracking-widest">
             Score: <span className="text-white">{percentage}%</span>
@@ -114,11 +134,26 @@ export default function Quiz() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button onClick={handleRestart} className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all">
+          {/* Default Retake */}
+          <button 
+            onClick={() => handleRestart(false)} 
+            className="cursor-pointer flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all"
+          >
             <RotateCcw size={18} /> Retake
           </button>
+
+          {/* NEW: Shuffle Retake */}
+          <button 
+            onClick={() => handleRestart(true)} 
+            className="cursor-pointer flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/50 text-violet-300 font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+          >
+            <Shuffle size={18} /> Shuffle & Retake
+          </button>
           
-          <button onClick={() => navigate('/library')} className="flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-[#0f0a1c] font-black hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]">
+          <button 
+            onClick={() => navigate('/library')} 
+            className="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-[#0f0a1c] font-black hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]"
+          >
             Back to Library <ArrowRight size={18} />
           </button>
         </div>
@@ -142,7 +177,7 @@ export default function Quiz() {
           </h1>
         </div>
         <div className="text-sm font-bold text-gray-400 bg-[#1a1333]/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl">
-          Question <span className="text-white">{currentQuestionIndex + 1}</span> / {questions.length}
+          Question <span className="text-white">{currentQuestionIndex + 1}</span> / {displayQuestions.length}
         </div>
       </div>
 
@@ -150,7 +185,7 @@ export default function Quiz() {
       <div className="w-full h-2.5 bg-[#1a1333] border border-white/5 rounded-full mb-8 overflow-hidden shadow-inner">
         <div 
           className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
-          style={{ width: `${((currentQuestionIndex + 1) / questions.length) * 100}%` }}
+          style={{ width: `${((currentQuestionIndex + 1) / displayQuestions.length) * 100}%` }}
         />
       </div>
 
@@ -186,7 +221,7 @@ export default function Quiz() {
                 key={index}
                 disabled={isAnswerSubmitted}
                 onClick={() => handleOptionClick(option)}
-                className={`w-full text-left p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group ${optionStyles}`}
+                className={`cursor-pointer w-full text-left p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group ${optionStyles}`}
               >
                 <span className="pr-4 text-lg">{option}</span>
                 {isAnswerSubmitted && isCorrect && <CheckCircle2 className="text-emerald-400 shrink-0" size={24} />}
@@ -202,7 +237,7 @@ export default function Quiz() {
             <button
               onClick={handleSubmitAnswer}
               disabled={!selectedAnswer}
-              className={`px-8 py-4 rounded-xl font-black text-lg transition-all ${
+              className={`cursor-pointer px-8 py-4 rounded-xl font-black text-lg transition-all ${
                 selectedAnswer 
                   ? "bg-white text-[#0f0a1c] hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:-translate-y-1" 
                   : "bg-white/5 text-gray-500 cursor-not-allowed"
@@ -213,9 +248,9 @@ export default function Quiz() {
           ) : (
             <button
               onClick={handleNextQuestion}
-              className="flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-lg hover:shadow-[0_0_25px_rgba(217,70,239,0.4)] hover:-translate-y-1 transition-all"
+              className="cursor-pointer flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-lg hover:shadow-[0_0_25px_rgba(217,70,239,0.4)] hover:-translate-y-1 transition-all"
             >
-              {currentQuestionIndex + 1 === questions.length ? "Finish Quiz" : "Next Question"} 
+              {currentQuestionIndex + 1 === displayQuestions.length ? "Finish Quiz" : "Next Question"} 
               <ArrowRight size={20} />
             </button>
           )}

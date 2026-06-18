@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, ChevronLeft, ChevronRight, RotateCw, Home as HomeIcon } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, RotateCw, Home as HomeIcon, Shuffle } from 'lucide-react';
 
 export default function Flashcards() {
   const location = useLocation();
@@ -8,10 +8,13 @@ export default function Flashcards() {
   
   const { cards, title } = location.state || { cards: [] };
   
+  // --- NEW: Local state for the deck so we can shuffle it ---
+  const [displayCards, setDisplayCards] = useState(cards);
+  
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
-  if (!cards || cards.length === 0) {
+  if (!displayCards || displayCards.length === 0) {
     return (
       <div className="relative flex flex-col items-center justify-center min-h-[60vh]">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-fuchsia-600/20 rounded-full blur-[100px] -z-10" />
@@ -27,7 +30,7 @@ export default function Flashcards() {
   }
 
   const handleNext = () => {
-    if (currentIndex < cards.length - 1) {
+    if (currentIndex < displayCards.length - 1) {
       setIsFlipped(false);
       setTimeout(() => setCurrentIndex(prev => prev + 1), 150);
     }
@@ -40,7 +43,16 @@ export default function Flashcards() {
     }
   };
 
-  const currentCard = cards[currentIndex];
+  // --- NEW: Shuffle Function ---
+  const handleShuffle = () => {
+    // We use sort with Math.random() to scramble the array locally
+    const shuffledDeck = [...displayCards].sort(() => Math.random() - 0.5);
+    setDisplayCards(shuffledDeck);
+    setCurrentIndex(0);
+    setIsFlipped(false);
+  };
+
+  const currentCard = displayCards[currentIndex];
 
   return (
     <div className="relative max-w-4xl mx-auto mt-8 p-4">
@@ -51,7 +63,7 @@ export default function Flashcards() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-10">
         <button 
           onClick={() => navigate('/library')} 
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1a1333]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all font-bold w-fit"
+          className="cursor-pointer flex items-center gap-2 px-4 py-2 rounded-xl bg-[#1a1333]/80 backdrop-blur-md border border-white/10 text-gray-300 hover:text-white hover:bg-white/10 transition-all font-bold w-fit"
         >
           <ArrowLeft size={18} /> Back to Library
         </button>
@@ -107,11 +119,11 @@ export default function Flashcards() {
         </div>
 
         {/* Controls */}
-        <div className="flex items-center gap-6 mt-12 w-full max-w-md justify-between bg-[#1a1333]/50 p-3 rounded-2xl border border-white/5 backdrop-blur-md">
+        <div className="flex items-center gap-4 mt-12 w-full max-w-lg justify-between bg-[#1a1333]/50 p-3 rounded-2xl border border-white/5 backdrop-blur-md">
           <button 
             onClick={handlePrev}
             disabled={currentIndex === 0}
-            className={`p-4 rounded-xl flex items-center justify-center transition-all ${
+            className={`cursor-pointer p-4 rounded-xl flex items-center justify-center transition-all ${
               currentIndex === 0 
                 ? 'bg-transparent text-gray-600 cursor-not-allowed' 
                 : 'bg-white/10 text-white hover:bg-white hover:text-[#0f0a1c] shadow-lg'
@@ -120,15 +132,25 @@ export default function Flashcards() {
             <ChevronLeft size={24} />
           </button>
 
-          <div className="flex-1 text-center font-black text-gray-300 tracking-widest">
-            {currentIndex + 1} <span className="text-gray-600 mx-2">/</span> {cards.length}
+          <div className="flex flex-col items-center">
+            <div className="text-center font-black text-gray-300 tracking-widest mb-1">
+              {currentIndex + 1} <span className="text-gray-600 mx-2">/</span> {displayCards.length}
+            </div>
+            
+            {/* NEW: Shuffle Button integrated into controls */}
+            <button
+              onClick={handleShuffle}
+              className="cursor-pointer flex items-center gap-1.5 text-xs font-bold text-violet-400 hover:text-fuchsia-400 transition-colors bg-white/5 px-3 py-1 rounded-full"
+            >
+              <Shuffle size={12} /> Shuffle Deck
+            </button>
           </div>
 
           <button 
             onClick={handleNext}
-            disabled={currentIndex === cards.length - 1}
-            className={`p-4 rounded-xl flex items-center justify-center transition-all ${
-              currentIndex === cards.length - 1 
+            disabled={currentIndex === displayCards.length - 1}
+            className={`cursor-pointer p-4 rounded-xl flex items-center justify-center transition-all ${
+              currentIndex === displayCards.length - 1 
                 ? 'bg-transparent text-gray-600 cursor-not-allowed' 
                 : 'bg-white/10 text-white hover:bg-white hover:text-[#0f0a1c] shadow-lg'
             }`}
