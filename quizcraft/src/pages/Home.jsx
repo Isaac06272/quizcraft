@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import UploadSection from '../components/UploadSection';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { db } from '../firebase';
+import { db, logInWithGoogle } from '../firebase'; // IMPORTED logInWithGoogle HERE
 import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
-import { FolderPlus, Save, Folder, Plus } from 'lucide-react';
+import { FolderPlus, Save, Folder, Plus, Lock } from 'lucide-react'; // ADDED Lock ICON
 
 export default function Home() {
   const navigate = useNavigate();
@@ -134,7 +134,6 @@ export default function Home() {
 
   return (
     <div className="relative min-h-[75vh] flex flex-col items-center justify-center -mt-10 md:-mt-4">
-      {/* Ambient Background Glows */}
       <div className="absolute top-0 left-[-5%] w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[120px] -z-10 pointer-events-none" />
       <div className="absolute bottom-0 right-[-5%] w-[400px] h-[400px] bg-fuchsia-600/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
@@ -161,12 +160,30 @@ export default function Home() {
             </h1>
           </div>
           
-          {/* UPDATED: Upload Section now sits directly below the main heading */}
           <div className="w-full">
-            <UploadSection onStart={handleStartGeneration} />
+            {/* --- NEW: CONDITIONAL RENDERING BASED ON LOGIN STATUS --- */}
+            {currentUser ? (
+              <UploadSection onStart={handleStartGeneration} />
+            ) : (
+              <div className="max-w-3xl mx-auto mt-4 p-10 bg-[#1a1333]/80 backdrop-blur-xl border border-white/10 rounded-3xl text-center shadow-[0_0_50px_rgba(0,0,0,0.3)]">
+                <div className="w-20 h-20 bg-violet-500/10 text-violet-400 rounded-full flex items-center justify-center mx-auto mb-6 border border-violet-500/20">
+                  <Lock size={32} />
+                </div>
+                <h2 className="text-3xl font-extrabold text-white mb-3">Unlock AI Generation</h2>
+                <p className="text-gray-400 mb-8 max-w-md mx-auto leading-relaxed">
+                  Sign in to upload your documents, generate custom study sets, and save them permanently to your personal library.
+                </p>
+                <button
+                  onClick={logInWithGoogle}
+                  className="cursor-pointer px-8 py-4 rounded-xl bg-white text-[#0f0a1c] font-black hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:-translate-y-1"
+                >
+                  Sign In to Continue
+                </button>
+              </div>
+            )}
+            {/* -------------------------------------------------------- */}
           </div>
 
-          {/* UPDATED: Paragraph text moved to the bottom */}
           <p className="text-sm md:text-base text-gray-500 max-w-xl mx-auto text-center mt-6 leading-relaxed">
             Upload your lecture slides, notes, or reading materials. We automatically extract the core concepts and generate interactive study sets.
           </p>
@@ -174,7 +191,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* SAVE MATERIAL MODAL */}
       {saveModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-[#1a1333] border border-purple-900/50 rounded-3xl p-8 w-full max-w-lg shadow-[0_0_50px_rgba(139,92,246,0.15)] transform transition-all">
