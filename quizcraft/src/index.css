@@ -10,10 +10,9 @@
 }
 
 body {
-  /* Apply the gradient to the absolute base of the website */
-  @apply bg-gradient-to-br from-[#0a0710] via-[#221645] to-[#0a0710] bg-fixed text-white;
-  min-height: 100vh;
-  margin: 0;
+  background-color: var(--background);
+  color: #ffffff;
+  overflow-x: hidden;
 }
 
 /* Custom Sleek Scrollbar */

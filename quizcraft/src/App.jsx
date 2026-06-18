@@ -70,7 +70,8 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen font-sans selection:bg-primary/30">
+        {/* The double scrollbar is fixed here with bg-fixed and no overflow-x-hidden */}
+        <div className="min-h-screen bg-gradient-to-br from-[#0a0710] via-[#221645] to-[#0a0710] bg-fixed text-white font-sans selection:bg-primary/30">
           <NavBar />
           <main className="container mx-auto px-4 py-12">
             <Routes>
