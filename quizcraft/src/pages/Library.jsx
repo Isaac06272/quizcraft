@@ -3,22 +3,18 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search, Folder, ChevronLeft, FolderPlus, FolderOutput, LayoutGrid } from 'lucide-react';
+import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search, Folder, ChevronLeft, FolderPlus, FolderOutput, LayoutGrid, Shuffle } from 'lucide-react';
 
 export default function Library() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   
-  // States for data
   const [materials, setMaterials] = useState([]);
   const [folders, setFolders] = useState([]);
   const [loading, setLoading] = useState(true);
   
-  // States for UI navigation & modals
   const [activeFolder, setActiveFolder] = useState(null); 
   const [searchQuery, setSearchQuery] = useState('');
-  
-  // Active Tab State (all, quiz, or flashcards)
   const [activeTab, setActiveTab] = useState('all'); 
   
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
@@ -57,11 +53,12 @@ export default function Library() {
     fetchData();
   }, [currentUser, navigate]);
 
-  const handleOpenMaterial = (material) => {
+  // --- UPDATED: Now accepts an isShuffled flag ---
+  const handleOpenMaterial = (material, isShuffled = false) => {
     if (material.type === 'quiz') {
-      navigate('/quiz', { state: { questions: material.data, materialId: material.id, title: material.title, savedScore: material.score } });
+      navigate('/quiz', { state: { questions: material.data, materialId: material.id, title: material.title, savedScore: material.score, isShuffled } });
     } else {
-      navigate('/flashcards', { state: { cards: material.data, materialId: material.id, title: material.title } });
+      navigate('/flashcards', { state: { cards: material.data, materialId: material.id, title: material.title, isShuffled } });
     }
   };
 
@@ -83,7 +80,6 @@ export default function Library() {
 
   const handleCreateFolder = async () => {
     if (!createFolderModal.name.trim()) return;
-    
     try {
       const newFolderName = createFolderModal.name.trim();
       const folderRef = await addDoc(collection(db, 'folders'), {
@@ -91,10 +87,8 @@ export default function Library() {
         userId: currentUser.uid,
         createdAt: serverTimestamp()
       });
-      
       const newFolders = [...folders, { id: folderRef.id, name: newFolderName }];
       newFolders.sort((a, b) => a.name.localeCompare(b.name));
-      
       setFolders(newFolders);
       setCreateFolderModal({ isOpen: false, name: '' });
     } catch (error) {
@@ -111,18 +105,15 @@ export default function Library() {
   const confirmMove = async (targetFolderId, targetFolderName) => {
     try {
       const isUncategorized = targetFolderId === 'uncategorized';
-      
       await updateDoc(doc(db, 'materials', moveModal.materialId), {
         folderId: isUncategorized ? null : targetFolderId,
         folderName: isUncategorized ? "Uncategorized" : targetFolderName
       });
-
       setMaterials((prev) => prev.map((m) => 
         m.id === moveModal.materialId 
           ? { ...m, folderId: isUncategorized ? null : targetFolderId, folderName: isUncategorized ? "Uncategorized" : targetFolderName } 
           : m
       ));
-      
       setMoveModal({ isOpen: false, materialId: null, currentFolderId: null });
     } catch (error) {
       console.error("Error moving material:", error);
@@ -131,22 +122,12 @@ export default function Library() {
   };
 
   const uncategorizedMaterials = materials.filter(m => !m.folderId);
-  
-  const filteredFolders = folders.filter((folder) => 
-    folder.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-  
+  const filteredFolders = folders.filter((folder) => folder.name.toLowerCase().includes(searchQuery.toLowerCase()));
   const displayedMaterials = activeFolder 
     ? materials.filter(m => {
         const matchesFolder = activeFolder.id === 'uncategorized' ? !m.folderId : m.folderId === activeFolder.id;
         const matchesSearch = (m.title || "").toLowerCase().includes(searchQuery.toLowerCase());
-        
-        const matchesTab = activeTab === 'all' 
-          ? true 
-          : activeTab === 'quiz' 
-            ? m.type === 'quiz' 
-            : m.type !== 'quiz';
-
+        const matchesTab = activeTab === 'all' ? true : activeTab === 'quiz' ? m.type === 'quiz' : m.type !== 'quiz';
         return matchesFolder && matchesSearch && matchesTab;
       })
     : [];
@@ -178,9 +159,7 @@ export default function Library() {
                   <button
                     onClick={() => setActiveTab('all')}
                     className={`cursor-pointer flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${
-                      activeTab === 'all' 
-                        ? 'bg-white/10 text-white shadow-md' 
-                        : 'text-gray-500 hover:text-gray-300'
+                      activeTab === 'all' ? 'bg-white/10 text-white shadow-md' : 'text-gray-500 hover:text-gray-300'
                     }`}
                   >
                     <LayoutGrid size={16} /> All
@@ -188,9 +167,7 @@ export default function Library() {
                   <button
                     onClick={() => setActiveTab('quiz')}
                     className={`cursor-pointer flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${
-                      activeTab === 'quiz' 
-                        ? 'bg-violet-500/20 text-violet-300 shadow-md border border-violet-500/30' 
-                        : 'text-gray-500 hover:text-violet-400'
+                      activeTab === 'quiz' ? 'bg-violet-500/20 text-violet-300 shadow-md border border-violet-500/30' : 'text-gray-500 hover:text-violet-400'
                     }`}
                   >
                     <FileQuestion size={16} /> Quizzes
@@ -198,15 +175,12 @@ export default function Library() {
                   <button
                     onClick={() => setActiveTab('flashcards')}
                     className={`cursor-pointer flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${
-                      activeTab === 'flashcards' 
-                        ? 'bg-fuchsia-500/20 text-fuchsia-300 shadow-md border border-fuchsia-500/30' 
-                        : 'text-gray-500 hover:text-fuchsia-400'
+                      activeTab === 'flashcards' ? 'bg-fuchsia-500/20 text-fuchsia-300 shadow-md border border-fuchsia-500/30' : 'text-gray-500 hover:text-fuchsia-400'
                     }`}
                   >
                     <BookOpen size={16} /> Flashcards
                   </button>
                 </div>
-
               </div>
             </div>
           ) : (
@@ -282,16 +256,13 @@ export default function Library() {
         </>
       )}
 
-
       {/* --- VIEW 2: MATERIALS GRID (Inside a Folder) --- */}
       {activeFolder && (
         <div className="animate-fade-in-up">
           {displayedMaterials.length === 0 ? (
             <div className="text-center p-12 bg-card rounded-2xl border border-dashed border-purple-900/50 mt-4">
               <p className="text-gray-400 text-lg">
-                {activeTab !== 'all' 
-                  ? `No ${activeTab === 'quiz' ? 'Quizzes' : 'Flashcards'} found in this folder.` 
-                  : "No materials found here."}
+                {activeTab !== 'all' ? `No ${activeTab === 'quiz' ? 'Quizzes' : 'Flashcards'} found in this folder.` : "No materials found here."}
               </p>
             </div>
           ) : (
@@ -299,10 +270,19 @@ export default function Library() {
               {displayedMaterials.map((item) => (
                 <div 
                   key={item.id} 
-                  onClick={() => handleOpenMaterial(item)}
+                  onClick={() => handleOpenMaterial(item, false)} // Default standard click
                   className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
                 >
+                  {/* --- CARD ACTIONS (Top Right) --- */}
                   <div className="absolute top-4 right-4 flex gap-1 z-10">
+                    {/* NEW: Shuffle Launch Button */}
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleOpenMaterial(item, true); }}
+                      className="cursor-pointer p-2 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
+                      title="Open Shuffled"
+                    >
+                      <Shuffle size={18} />
+                    </button>
                     <button
                       onClick={(e) => triggerMove(e, item)}
                       className="cursor-pointer p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
@@ -319,7 +299,7 @@ export default function Library() {
                     </button>
                   </div>
 
-                  <div className="flex items-center gap-3 mb-4 text-primary pr-16">
+                  <div className="flex items-center gap-3 mb-4 text-primary pr-28">
                     {item.type === 'quiz' ? <FileQuestion size={24} /> : <BookOpen size={24} />}
                     <span className="font-bold uppercase tracking-wider text-xs bg-primary/10 px-3 py-1 rounded-full">
                       {item.type}
@@ -349,8 +329,7 @@ export default function Library() {
         </div>
       )}
 
-      {/* --- MODALS (Create Folder, Move, Delete) --- */}
-      {/* 1. Create Folder Modal */}
+      {/* MODALS */}
       {createFolderModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-[#1a1333] border border-purple-900/50 rounded-2xl p-6 w-full max-w-sm shadow-[0_0_30px_rgba(139,92,246,0.15)] animate-fade-in-up">
@@ -364,93 +343,51 @@ export default function Library() {
               className="w-full bg-[#0b0914] border border-white/10 text-white rounded-xl px-4 py-3 mb-6 focus:outline-none focus:border-violet-500 transition-all cursor-text"
             />
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setCreateFolderModal({ isOpen: false, name: '' })}
-                className="cursor-pointer px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleCreateFolder}
-                className="cursor-pointer px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold transition-all"
-              >
-                Create
-              </button>
+              <button onClick={() => setCreateFolderModal({ isOpen: false, name: '' })} className="cursor-pointer px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium">Cancel</button>
+              <button onClick={handleCreateFolder} className="cursor-pointer px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold transition-all">Create</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 2. Move Material Modal */}
       {moveModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
           <div className="bg-[#1a1333] border border-purple-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(59,130,246,0.15)] animate-fade-in-up">
             <h3 className="text-xl font-bold text-white mb-2">Move Material</h3>
             <p className="text-gray-400 text-sm mb-4">Select a destination folder.</p>
-            
             <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar mb-6">
               {moveModal.currentFolderId !== 'uncategorized' && (
-                <button
-                  onClick={() => confirmMove('uncategorized', 'Uncategorized')}
-                  className="cursor-pointer w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-gray-500 transition-all text-gray-300"
-                >
+                <button onClick={() => confirmMove('uncategorized', 'Uncategorized')} className="cursor-pointer w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-gray-500 transition-all text-gray-300">
                   <Folder size={18} className="text-gray-500" /> Uncategorized
                 </button>
               )}
-
               {folders.filter(f => f.id !== moveModal.currentFolderId).map((folder) => (
-                <button
-                  key={folder.id}
-                  onClick={() => confirmMove(folder.id, folder.name)}
-                  className="cursor-pointer w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-gray-200"
-                >
+                <button key={folder.id} onClick={() => confirmMove(folder.id, folder.name)} className="cursor-pointer w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-gray-200">
                   <Folder size={18} className="text-violet-400" /> {folder.name}
                 </button>
               ))}
-              
               {folders.length <= 1 && moveModal.currentFolderId !== 'uncategorized' && (
                 <p className="text-gray-500 text-sm text-center py-4">No other folders available.</p>
               )}
             </div>
-
             <div className="flex justify-end">
-              <button
-                onClick={() => setMoveModal({ isOpen: false, materialId: null, currentFolderId: null })}
-                className="cursor-pointer px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
-              >
-                Cancel
-              </button>
+              <button onClick={() => setMoveModal({ isOpen: false, materialId: null, currentFolderId: null })} className="cursor-pointer px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium">Cancel</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 3. Delete Confirmation Modal */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-[#1a1525] border border-red-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(239,68,68,0.15)] transform transition-all">
             <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-red-500/10 rounded-full text-red-500">
-                <AlertTriangle size={24} />
-              </div>
+              <div className="p-3 bg-red-500/10 rounded-full text-red-500"><AlertTriangle size={24} /></div>
               <h3 className="text-xl font-bold text-white">Delete Material</h3>
             </div>
-            <p className="text-gray-400 mb-8 ml-2">
-              Are you sure you want to permanently delete this study material? This action cannot be undone.
-            </p>
+            <p className="text-gray-400 mb-8 ml-2">Are you sure you want to permanently delete this study material? This action cannot be undone.</p>
             <div className="flex justify-end gap-3">
-              <button
-                onClick={() => setDeleteModal({ isOpen: false, materialId: null })}
-                className="cursor-pointer px-5 py-2.5 rounded-xl font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={confirmDelete}
-                className="cursor-pointer px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20"
-              >
-                Yes, Delete
-              </button>
+              <button onClick={() => setDeleteModal({ isOpen: false, materialId: null })} className="cursor-pointer px-5 py-2.5 rounded-xl font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors">Cancel</button>
+              <button onClick={confirmDelete} className="cursor-pointer px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20">Yes, Delete</button>
             </div>
           </div>
         </div>

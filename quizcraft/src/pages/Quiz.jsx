@@ -2,19 +2,26 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Trophy, ArrowRight, CheckCircle2, XCircle, RotateCcw, Home as HomeIcon, Shuffle } from 'lucide-react';
+import { Trophy, ArrowRight, CheckCircle2, XCircle, RotateCcw, Home as HomeIcon } from 'lucide-react';
 
-// --- NEW: Helper function to scramble arrays ---
 const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
 
 export default function Quiz() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { questions, materialId, title, savedScore } = location.state || { questions: [] };
+  const { questions, materialId, title, savedScore, isShuffled } = location.state || { questions: [] };
 
-  // --- NEW: Display state so we can shuffle without permanently mutating the database data ---
-  const [displayQuestions, setDisplayQuestions] = useState(questions);
+  // Set the display state ONCE upon entering the quiz based on the library choice
+  const [displayQuestions, setDisplayQuestions] = useState(() => {
+    if (isShuffled && questions) {
+      return shuffleArray(questions).map(q => ({
+        ...q,
+        options: shuffleArray(q.options)
+      }));
+    }
+    return questions;
+  });
 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState(null);
@@ -39,7 +46,6 @@ export default function Quiz() {
 
   const currentQuestion = displayQuestions[currentQuestionIndex];
 
-  // Auto-save the best score to Firestore
   useEffect(() => {
     if (isFinished && materialId) {
       const saveScoreToDb = async () => {
@@ -63,7 +69,6 @@ export default function Quiz() {
 
   const handleSubmitAnswer = () => {
     if (!selectedAnswer || isAnswerSubmitted) return;
-
     setIsAnswerSubmitted(true);
     if (selectedAnswer === currentQuestion.correctAnswer) {
       setScore((prev) => prev + 1);
@@ -73,7 +78,6 @@ export default function Quiz() {
   const handleNextQuestion = () => {
     setSelectedAnswer(null);
     setIsAnswerSubmitted(false);
-
     if (currentQuestionIndex + 1 < displayQuestions.length) {
       setCurrentQuestionIndex((prev) => prev + 1);
     } else {
@@ -81,21 +85,8 @@ export default function Quiz() {
     }
   };
 
-  // --- NEW: Advanced Restart Handler ---
-  const handleRestart = (shouldShuffle = false) => {
-    if (shouldShuffle) {
-      // 1. Scramble the order of the questions
-      // 2. Map through each question and scramble the 4 multiple-choice options!
-      const scrambledQuiz = shuffleArray(questions).map(q => ({
-        ...q,
-        options: shuffleArray(q.options)
-      }));
-      setDisplayQuestions(scrambledQuiz);
-    } else {
-      // Reset to default original order
-      setDisplayQuestions(questions);
-    }
-    
+  // Reverted entirely back to its original state
+  const handleRestart = () => {
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
     setIsAnswerSubmitted(false);
@@ -103,7 +94,6 @@ export default function Quiz() {
     setIsFinished(false);
   };
 
-  // --- SUMMARY SCREEN ---
   if (isFinished) {
     const percentage = Math.round((score / displayQuestions.length) * 100);
     
@@ -134,20 +124,11 @@ export default function Quiz() {
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {/* Default Retake */}
           <button 
-            onClick={() => handleRestart(false)} 
-            className="cursor-pointer flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all"
+            onClick={handleRestart} 
+            className="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all"
           >
             <RotateCcw size={18} /> Retake
-          </button>
-
-          {/* NEW: Shuffle Retake */}
-          <button 
-            onClick={() => handleRestart(true)} 
-            className="cursor-pointer flex items-center justify-center gap-2 px-6 py-4 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 border border-violet-500/50 text-violet-300 font-bold transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)]"
-          >
-            <Shuffle size={18} /> Shuffle & Retake
           </button>
           
           <button 
@@ -161,17 +142,16 @@ export default function Quiz() {
     );
   }
 
-  // --- ACTIVE QUIZ INTERFACE ---
   return (
     <div className="relative max-w-3xl mx-auto mt-8">
-      {/* Ambient background glows */}
       <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-violet-600/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[300px] h-[300px] bg-fuchsia-600/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
-      {/* Header */}
       <div className="flex justify-between items-end mb-6 px-2">
         <div>
-          <span className="text-xs uppercase tracking-widest font-black text-violet-400">Active Quiz</span>
+          <span className="text-xs uppercase tracking-widest font-black text-violet-400">
+            {isShuffled ? "Active Quiz (Shuffled)" : "Active Quiz"}
+          </span>
           <h1 className="text-xl font-bold text-white mt-1 truncate max-w-xs md:max-w-md" title={title}>
             {title || "Study Assessment"}
           </h1>
@@ -181,7 +161,6 @@ export default function Quiz() {
         </div>
       </div>
 
-      {/* Progress Track */}
       <div className="w-full h-2.5 bg-[#1a1333] border border-white/5 rounded-full mb-8 overflow-hidden shadow-inner">
         <div 
           className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
@@ -189,13 +168,11 @@ export default function Quiz() {
         />
       </div>
 
-      {/* Main Question Card */}
       <div className="bg-[#1a1333]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-[0_0_40px_rgba(0,0,0,0.3)] relative overflow-hidden">
         <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-10 leading-relaxed">
           {currentQuestion.question}
         </h3>
 
-        {/* Options Stack */}
         <div className="space-y-4">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === option;
@@ -231,7 +208,6 @@ export default function Quiz() {
           })}
         </div>
 
-        {/* Footer Navigation */}
         <div className="mt-10 pt-8 border-t border-white/10 flex justify-end">
           {!isAnswerSubmitted ? (
             <button
