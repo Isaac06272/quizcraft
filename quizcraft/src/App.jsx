@@ -7,7 +7,6 @@ import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { logInWithGoogle, logOut } from './firebase';
 
 // Extract the Navbar into a sub-component so it can use the Auth hook
-// Inside src/App.jsx, update the NavBar function:
 function NavBar() {
   const { currentUser } = useAuth();
 
@@ -71,7 +70,8 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        <div className="min-h-screen bg-background text-white font-sans selection:bg-primary/30">
+        {/* The blanket has been removed and replaced with the gradient here! */}
+        <div className="min-h-screen bg-gradient-to-br from-[#0a0710] via-[#221645] to-[#0a0710] overflow-x-hidden text-white font-sans selection:bg-primary/30">
           <NavBar />
           <main className="container mx-auto px-4 py-12">
             <Routes>

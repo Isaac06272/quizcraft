@@ -10,8 +10,8 @@
 }
 
 body {
-  /* The new rich, fixed gradient replaces the flat background color */
-  @apply bg-gradient-to-br from-[#0b0914] via-[#1a122e] to-[#0b0914] text-white min-h-screen bg-fixed;
+  background-color: var(--background);
+  color: #ffffff;
   overflow-x: hidden;
 }
 
