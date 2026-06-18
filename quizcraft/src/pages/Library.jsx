@@ -3,7 +3,7 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search, Folder, ChevronLeft, FolderPlus, FolderOutput } from 'lucide-react';
+import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search, Folder, ChevronLeft, FolderPlus, FolderOutput, LayoutGrid } from 'lucide-react';
 
 export default function Library() {
   const { currentUser } = useAuth();
@@ -17,9 +17,11 @@ export default function Library() {
   // States for UI navigation & modals
   const [activeFolder, setActiveFolder] = useState(null); 
   const [searchQuery, setSearchQuery] = useState('');
-  const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
   
-  // --- NEW STATES FOR FOLDERS AND MOVING ---
+  // Active Tab State (all, quiz, or flashcards)
+  const [activeTab, setActiveTab] = useState('all'); 
+  
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
   const [createFolderModal, setCreateFolderModal] = useState({ isOpen: false, name: '' });
   const [moveModal, setMoveModal] = useState({ isOpen: false, materialId: null, currentFolderId: null });
 
@@ -63,7 +65,6 @@ export default function Library() {
     }
   };
 
-  // --- DELETE LOGIC ---
   const triggerDelete = (e, materialId) => {
     e.stopPropagation();
     setDeleteModal({ isOpen: true, materialId: materialId });
@@ -80,7 +81,6 @@ export default function Library() {
     }
   };
 
-  // --- NEW: CREATE FOLDER LOGIC ---
   const handleCreateFolder = async () => {
     if (!createFolderModal.name.trim()) return;
     
@@ -103,7 +103,6 @@ export default function Library() {
     }
   };
 
-  // --- NEW: MOVE MATERIAL LOGIC ---
   const triggerMove = (e, material) => {
     e.stopPropagation();
     setMoveModal({ isOpen: true, materialId: material.id, currentFolderId: material.folderId || 'uncategorized' });
@@ -118,7 +117,6 @@ export default function Library() {
         folderName: isUncategorized ? "Uncategorized" : targetFolderName
       });
 
-      // Update local state so it immediately disappears from current folder
       setMaterials((prev) => prev.map((m) => 
         m.id === moveModal.materialId 
           ? { ...m, folderId: isUncategorized ? null : targetFolderId, folderName: isUncategorized ? "Uncategorized" : targetFolderName } 
@@ -132,7 +130,6 @@ export default function Library() {
     }
   };
 
-  // --- FILTERING LOGIC ---
   const uncategorizedMaterials = materials.filter(m => !m.folderId);
   
   const filteredFolders = folders.filter((folder) => 
@@ -140,10 +137,18 @@ export default function Library() {
   );
   
   const displayedMaterials = activeFolder 
-    ? materials.filter(m => 
-        (activeFolder.id === 'uncategorized' ? !m.folderId : m.folderId === activeFolder.id) && 
-        (m.title || "").toLowerCase().includes(searchQuery.toLowerCase())
-      )
+    ? materials.filter(m => {
+        const matchesFolder = activeFolder.id === 'uncategorized' ? !m.folderId : m.folderId === activeFolder.id;
+        const matchesSearch = (m.title || "").toLowerCase().includes(searchQuery.toLowerCase());
+        
+        const matchesTab = activeTab === 'all' 
+          ? true 
+          : activeTab === 'quiz' 
+            ? m.type === 'quiz' 
+            : m.type !== 'quiz';
+
+        return matchesFolder && matchesSearch && matchesTab;
+      })
     : [];
 
   if (loading) return <div className="text-center mt-32 text-gray-400">Loading your library...</div>;
@@ -151,20 +156,57 @@ export default function Library() {
   return (
     <div className="max-w-5xl mx-auto mt-8 p-6 relative min-h-[60vh]">
       
-      {/* HEADER WITH DYNAMIC SEARCH BAR */}
+      {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-purple-900/30 pb-6 mb-8 gap-4 transition-all">
         <div>
           {activeFolder ? (
             <div className="animate-fade-in-up">
               <button 
-                onClick={() => { setActiveFolder(null); setSearchQuery(''); }}
-                className="flex items-center gap-2 text-violet-400 hover:text-violet-300 font-bold mb-4 transition-colors"
+                onClick={() => { setActiveFolder(null); setSearchQuery(''); setActiveTab('all'); }}
+                className="flex items-center gap-2 text-violet-400 hover:text-violet-300 font-bold mb-4 transition-colors cursor-pointer"
               >
                 <ChevronLeft size={20} /> Back to Folders
               </button>
-              <div className="flex items-center gap-3">
-                <Folder className="text-violet-500" size={32} />
-                <h2 className="text-4xl font-extrabold text-white">{activeFolder.name}</h2>
+              
+              <div className="flex flex-col gap-5">
+                <div className="flex items-center gap-3">
+                  <Folder className="text-violet-500" size={32} />
+                  <h2 className="text-4xl font-extrabold text-white">{activeFolder.name}</h2>
+                </div>
+
+                <div className="flex items-center bg-[#1a1333]/80 p-1 rounded-xl border border-white/5 w-fit shadow-inner">
+                  <button
+                    onClick={() => setActiveTab('all')}
+                    className={`cursor-pointer flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${
+                      activeTab === 'all' 
+                        ? 'bg-white/10 text-white shadow-md' 
+                        : 'text-gray-500 hover:text-gray-300'
+                    }`}
+                  >
+                    <LayoutGrid size={16} /> All
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('quiz')}
+                    className={`cursor-pointer flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${
+                      activeTab === 'quiz' 
+                        ? 'bg-violet-500/20 text-violet-300 shadow-md border border-violet-500/30' 
+                        : 'text-gray-500 hover:text-violet-400'
+                    }`}
+                  >
+                    <FileQuestion size={16} /> Quizzes
+                  </button>
+                  <button
+                    onClick={() => setActiveTab('flashcards')}
+                    className={`cursor-pointer flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-bold transition-all duration-300 ${
+                      activeTab === 'flashcards' 
+                        ? 'bg-fuchsia-500/20 text-fuchsia-300 shadow-md border border-fuchsia-500/30' 
+                        : 'text-gray-500 hover:text-fuchsia-400'
+                    }`}
+                  >
+                    <BookOpen size={16} /> Flashcards
+                  </button>
+                </div>
+
               </div>
             </div>
           ) : (
@@ -173,11 +215,9 @@ export default function Library() {
                 <h2 className="text-4xl font-extrabold text-white">My Library</h2>
                 <p className="text-gray-400 mt-2">Organize and review your generated study sets.</p>
               </div>
-              
-              {/* --- NEW: CREATE FOLDER ICON BUTTON --- */}
               <button 
                 onClick={() => setCreateFolderModal({ isOpen: true, name: '' })}
-                className="p-3 bg-violet-500/10 hover:bg-violet-500/30 text-violet-400 border border-violet-500/20 hover:border-violet-500/50 rounded-xl transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                className="cursor-pointer p-3 bg-violet-500/10 hover:bg-violet-500/30 text-violet-400 border border-violet-500/20 hover:border-violet-500/50 rounded-xl transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)]"
                 title="Create New Subject Folder"
               >
                 <FolderPlus size={24} />
@@ -194,7 +234,7 @@ export default function Library() {
             placeholder={activeFolder ? `Search in ${activeFolder.name}...` : "Search subjects..."} 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-[#1a1333] border border-purple-900/50 text-white placeholder-gray-500 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner"
+            className="w-full bg-[#1a1333] border border-purple-900/50 text-white placeholder-gray-500 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner cursor-text"
           />
         </div>
       </div>
@@ -213,7 +253,7 @@ export default function Library() {
                 return (
                   <div 
                     key={folder.id} 
-                    onClick={() => { setActiveFolder(folder); setSearchQuery(''); }}
+                    onClick={() => { setActiveFolder(folder); setSearchQuery(''); setActiveTab('all'); }}
                     className="bg-[#1a1333]/80 backdrop-blur-md border border-white/10 rounded-2xl p-6 hover:border-violet-500 transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(139,92,246,0.15)] hover:-translate-y-1"
                   >
                     <div className="w-12 h-12 bg-violet-500/10 rounded-xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
@@ -227,7 +267,7 @@ export default function Library() {
 
               {uncategorizedMaterials.length > 0 && (
                 <div 
-                  onClick={() => { setActiveFolder({ id: 'uncategorized', name: 'Uncategorized' }); setSearchQuery(''); }}
+                  onClick={() => { setActiveFolder({ id: 'uncategorized', name: 'Uncategorized' }); setSearchQuery(''); setActiveTab('all'); }}
                   className="bg-[#1a1333]/50 backdrop-blur-md border border-dashed border-gray-600 rounded-2xl p-6 hover:border-gray-400 transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(255,255,255,0.05)] hover:-translate-y-1"
                 >
                   <div className="w-12 h-12 bg-gray-500/10 rounded-xl flex items-center justify-center mb-4">
@@ -247,29 +287,32 @@ export default function Library() {
       {activeFolder && (
         <div className="animate-fade-in-up">
           {displayedMaterials.length === 0 ? (
-            <div className="text-center p-12 bg-card rounded-2xl border border-dashed border-purple-900/50">
-              <p className="text-gray-400 text-lg">No materials found here.</p>
+            <div className="text-center p-12 bg-card rounded-2xl border border-dashed border-purple-900/50 mt-4">
+              <p className="text-gray-400 text-lg">
+                {activeTab !== 'all' 
+                  ? `No ${activeTab === 'quiz' ? 'Quizzes' : 'Flashcards'} found in this folder.` 
+                  : "No materials found here."}
+              </p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
               {displayedMaterials.map((item) => (
                 <div 
                   key={item.id} 
                   onClick={() => handleOpenMaterial(item)}
                   className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
                 >
-                  {/* --- CARD ACTIONS (Top Right) --- */}
                   <div className="absolute top-4 right-4 flex gap-1 z-10">
                     <button
                       onClick={(e) => triggerMove(e, item)}
-                      className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
+                      className="cursor-pointer p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
                       title="Move Material"
                     >
                       <FolderOutput size={18} />
                     </button>
                     <button
                       onClick={(e) => triggerDelete(e, item.id)}
-                      className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                      className="cursor-pointer p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
                       title="Delete Material"
                     >
                       <Trash2 size={18} />
@@ -306,8 +349,7 @@ export default function Library() {
         </div>
       )}
 
-      {/* --- MODALS --- */}
-
+      {/* --- MODALS (Create Folder, Move, Delete) --- */}
       {/* 1. Create Folder Modal */}
       {createFolderModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
@@ -319,18 +361,18 @@ export default function Library() {
               value={createFolderModal.name}
               onChange={(e) => setCreateFolderModal({ ...createFolderModal, name: e.target.value })}
               placeholder="e.g., Biology 101"
-              className="w-full bg-[#0b0914] border border-white/10 text-white rounded-xl px-4 py-3 mb-6 focus:outline-none focus:border-violet-500 transition-all"
+              className="w-full bg-[#0b0914] border border-white/10 text-white rounded-xl px-4 py-3 mb-6 focus:outline-none focus:border-violet-500 transition-all cursor-text"
             />
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setCreateFolderModal({ isOpen: false, name: '' })}
-                className="px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
+                className="cursor-pointer px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleCreateFolder}
-                className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold transition-all"
+                className="cursor-pointer px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold transition-all"
               >
                 Create
               </button>
@@ -347,22 +389,20 @@ export default function Library() {
             <p className="text-gray-400 text-sm mb-4">Select a destination folder.</p>
             
             <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar mb-6">
-              {/* Option to move to Uncategorized */}
               {moveModal.currentFolderId !== 'uncategorized' && (
                 <button
                   onClick={() => confirmMove('uncategorized', 'Uncategorized')}
-                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-gray-500 transition-all text-gray-300"
+                  className="cursor-pointer w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-gray-500 transition-all text-gray-300"
                 >
                   <Folder size={18} className="text-gray-500" /> Uncategorized
                 </button>
               )}
 
-              {/* Mapped Folders */}
               {folders.filter(f => f.id !== moveModal.currentFolderId).map((folder) => (
                 <button
                   key={folder.id}
                   onClick={() => confirmMove(folder.id, folder.name)}
-                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-gray-200"
+                  className="cursor-pointer w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-gray-200"
                 >
                   <Folder size={18} className="text-violet-400" /> {folder.name}
                 </button>
@@ -376,7 +416,7 @@ export default function Library() {
             <div className="flex justify-end">
               <button
                 onClick={() => setMoveModal({ isOpen: false, materialId: null, currentFolderId: null })}
-                className="px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
+                className="cursor-pointer px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
               >
                 Cancel
               </button>
@@ -401,13 +441,13 @@ export default function Library() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setDeleteModal({ isOpen: false, materialId: null })}
-                className="px-5 py-2.5 rounded-xl font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+                className="cursor-pointer px-5 py-2.5 rounded-xl font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={confirmDelete}
-                className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20"
+                className="cursor-pointer px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20"
               >
                 Yes, Delete
               </button>
