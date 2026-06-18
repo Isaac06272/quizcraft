@@ -17,6 +17,9 @@ export default function Library() {
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('all'); 
   
+  // --- NEW: State to track which cards have shuffle toggled ON ---
+  const [shuffleToggles, setShuffleToggles] = useState({});
+  
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
   const [createFolderModal, setCreateFolderModal] = useState({ isOpen: false, name: '' });
   const [moveModal, setMoveModal] = useState({ isOpen: false, materialId: null, currentFolderId: null });
@@ -53,13 +56,21 @@ export default function Library() {
     fetchData();
   }, [currentUser, navigate]);
 
-  // --- UPDATED: Now accepts an isShuffled flag ---
   const handleOpenMaterial = (material, isShuffled = false) => {
     if (material.type === 'quiz') {
       navigate('/quiz', { state: { questions: material.data, materialId: material.id, title: material.title, savedScore: material.score, isShuffled } });
     } else {
       navigate('/flashcards', { state: { cards: material.data, materialId: material.id, title: material.title, isShuffled } });
     }
+  };
+
+  // --- NEW: Function to toggle shuffle mode for a specific card ---
+  const toggleShuffle = (e, materialId) => {
+    e.stopPropagation(); // Prevent the card from opening
+    setShuffleToggles(prev => ({
+      ...prev,
+      [materialId]: !prev[materialId] // Flip true to false, or false to true
+    }));
   };
 
   const triggerDelete = (e, materialId) => {
@@ -267,63 +278,74 @@ export default function Library() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-4">
-              {displayedMaterials.map((item) => (
-                <div 
-                  key={item.id} 
-                  onClick={() => handleOpenMaterial(item, false)} // Default standard click
-                  className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
-                >
-                  {/* --- CARD ACTIONS (Top Right) --- */}
-                  <div className="absolute top-4 right-4 flex gap-1 z-10">
-                    {/* NEW: Shuffle Launch Button */}
-                    <button
-                      onClick={(e) => { e.stopPropagation(); handleOpenMaterial(item, true); }}
-                      className="cursor-pointer p-2 text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10 rounded-full transition-colors"
-                      title="Open Shuffled"
-                    >
-                      <Shuffle size={18} />
-                    </button>
-                    <button
-                      onClick={(e) => triggerMove(e, item)}
-                      className="cursor-pointer p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
-                      title="Move Material"
-                    >
-                      <FolderOutput size={18} />
-                    </button>
-                    <button
-                      onClick={(e) => triggerDelete(e, item.id)}
-                      className="cursor-pointer p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
-                      title="Delete Material"
-                    >
-                      <Trash2 size={18} />
-                    </button>
-                  </div>
+              {displayedMaterials.map((item) => {
+                
+                // Check if this specific card has shuffle toggled ON
+                const isShuffled = !!shuffleToggles[item.id];
 
-                  <div className="flex items-center gap-3 mb-4 text-primary pr-28">
-                    {item.type === 'quiz' ? <FileQuestion size={24} /> : <BookOpen size={24} />}
-                    <span className="font-bold uppercase tracking-wider text-xs bg-primary/10 px-3 py-1 rounded-full">
-                      {item.type}
-                    </span>
+                return (
+                  <div 
+                    key={item.id} 
+                    // Card click now passes the current toggle state!
+                    onClick={() => handleOpenMaterial(item, isShuffled)} 
+                    className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
+                  >
+                    {/* --- CARD ACTIONS (Top Right) --- */}
+                    <div className="absolute top-4 right-4 flex gap-1 z-10">
+                      {/* UPDATED: Shuffle Toggle Button */}
+                      <button
+                        onClick={(e) => toggleShuffle(e, item.id)}
+                        className={`cursor-pointer p-2 rounded-full transition-colors ${
+                          isShuffled 
+                            ? 'text-emerald-400 bg-emerald-500/20 hover:bg-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                            : 'text-gray-500 hover:text-emerald-400 hover:bg-emerald-500/10'
+                        }`}
+                        title={isShuffled ? "Shuffle Mode: ON" : "Turn Shuffle Mode ON"}
+                      >
+                        <Shuffle size={18} />
+                      </button>
+                      <button
+                        onClick={(e) => triggerMove(e, item)}
+                        className="cursor-pointer p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
+                        title="Move Material"
+                      >
+                        <FolderOutput size={18} />
+                      </button>
+                      <button
+                        onClick={(e) => triggerDelete(e, item.id)}
+                        className="cursor-pointer p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                        title="Delete Material"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
+
+                    <div className="flex items-center gap-3 mb-4 text-primary pr-28">
+                      {item.type === 'quiz' ? <FileQuestion size={24} /> : <BookOpen size={24} />}
+                      <span className="font-bold uppercase tracking-wider text-xs bg-primary/10 px-3 py-1 rounded-full">
+                        {item.type}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-xl font-bold text-white mb-2 truncate" title={item.title}>
+                      {item.title}
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-6">{item.totalItems} items generated</p>
+                    
+                    <div className="flex items-center justify-between border-t border-purple-900/30 pt-4">
+                      {item.type === 'quiz' ? (
+                        <div className="flex items-center gap-2 text-yellow-500 font-medium text-sm">
+                          <Trophy size={16} /> 
+                          {item.score ? `Best Score: ${item.score}/${item.totalItems}` : 'Not taken yet'}
+                        </div>
+                      ) : (
+                        <div className="text-gray-500 text-sm">Interactive Deck</div>
+                      )}
+                      <ArrowRight size={18} className="text-gray-500 group-hover:text-primary transition-colors" />
+                    </div>
                   </div>
-                  
-                  <h3 className="text-xl font-bold text-white mb-2 truncate" title={item.title}>
-                    {item.title}
-                  </h3>
-                  <p className="text-gray-400 text-sm mb-6">{item.totalItems} items generated</p>
-                  
-                  <div className="flex items-center justify-between border-t border-purple-900/30 pt-4">
-                    {item.type === 'quiz' ? (
-                      <div className="flex items-center gap-2 text-yellow-500 font-medium text-sm">
-                        <Trophy size={16} /> 
-                        {item.score ? `Best Score: ${item.score}/${item.totalItems}` : 'Not taken yet'}
-                      </div>
-                    ) : (
-                      <div className="text-gray-500 text-sm">Interactive Deck</div>
-                    )}
-                    <ArrowRight size={18} className="text-gray-500 group-hover:text-primary transition-colors" />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
