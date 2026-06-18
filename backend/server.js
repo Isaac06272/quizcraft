@@ -5,7 +5,7 @@ import dotenv from 'dotenv';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { GoogleAIFileManager } from '@google/generative-ai/server';
 import fs from 'fs';
-import mammoth from 'mammoth'; // Added our new Word Doc reader!
+import mammoth from 'mammoth';
 
 dotenv.config();
 
@@ -16,6 +16,11 @@ app.use(express.json());
 const upload = multer({ dest: 'uploads/' });
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 const fileManager = new GoogleAIFileManager(process.env.GEMINI_API_KEY);
+
+// Health check root route
+app.get('/', (req, res) => {
+    res.send('QuizCraft Backend Server is Awake and using Gemini API!');
+});
 
 app.post('/api/generate', upload.single('file'), async (req, res) => {
     try {
@@ -43,15 +48,10 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
         // 2. Handle the file based on its type!
         if (file.originalname.endsWith('.docx') || file.mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
             console.log("Word Document detected. Extracting text manually...");
-            
-            // Crack open the Word Doc and extract the raw text
             const docxResult = await mammoth.extractRawText({ path: file.path });
-            
-            // Pass the extracted text directly to Gemini
             contentPayload.push({ text: `Here is the document text to analyze:\n\n${docxResult.value}\n\n` });
         } else {
             console.log("PDF or TXT detected. Uploading to Gemini File API...");
-            
             const uploadResponse = await fileManager.uploadFile(file.path, {
                 mimeType: file.mimetype,
                 displayName: file.originalname,
@@ -64,16 +64,31 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
             });
         }
 
-        // Add our prompt instructions to the payload
         contentPayload.push({ text: prompt });
 
-        // 3. Request the generation from the AI
-        const model = genAI.getGenerativeModel({ 
-            model: "gemini-3.5-flash",
-            generationConfig: { responseMimeType: "application/json" }
-        });
-
-        const result = await model.generateContent(contentPayload);
+        // 3. Request the generation from the AI with FALLBACK LOGIC
+        let result;
+        try {
+            console.log("Attempting generation with primary model (gemini-2.5-flash)...");
+            const primaryModel = genAI.getGenerativeModel({ 
+                model: "gemini-2.5-flash",
+                generationConfig: { responseMimeType: "application/json" }
+            });
+            result = await primaryModel.generateContent(contentPayload);
+            console.log("Success with primary model!");
+            
+        } catch (primaryError) {
+            console.warn(`Primary model failed (likely rate limit). Error: ${primaryError.message}`);
+            console.log("Switching to backup model (gemini-3.5-flash)...");
+            
+            // If the first one fails, it immediately runs this one instead
+            const fallbackModel = genAI.getGenerativeModel({ 
+                model: "gemini-3.5-flash",
+                generationConfig: { responseMimeType: "application/json" }
+            });
+            result = await fallbackModel.generateContent(contentPayload);
+            console.log("Success with backup model!");
+        }
 
         // 4. Delete the temporary file from your local server
         fs.unlinkSync(file.path);
@@ -89,13 +104,13 @@ app.post('/api/generate', upload.single('file'), async (req, res) => {
         res.json(generatedData);
 
     } catch (error) {
-        console.error("Error generating content:", error);
+        console.error("Complete Backend Crash:", error);
         
         // Safety cleanup: delete file even if an error crashes the request
         if (req.file && fs.existsSync(req.file.path)) {
             fs.unlinkSync(req.file.path);
         }
-        res.status(500).json({ error: "Failed to generate content." });
+        res.status(500).json({ error: "Failed to generate content after trying all models." });
     }
 });
 

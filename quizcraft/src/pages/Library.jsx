@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileQuestion, Trophy, ArrowRight } from 'lucide-react';
+import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2 } from 'lucide-react';
 
 export default function Library() {
   const { currentUser } = useAuth();
@@ -52,6 +52,26 @@ export default function Library() {
     }
   };
 
+  // --- NEW DELETE LOGIC ---
+  const handleDelete = async (e, materialId) => {
+    // Stop the click event from triggering the card's handleOpenMaterial function
+    e.stopPropagation(); 
+    
+    const isConfirmed = window.confirm("Are you sure you want to permanently delete this material?");
+    if (!isConfirmed) return;
+
+    try {
+      await deleteDoc(doc(db, 'materials', materialId));
+      
+      // Update state to remove the item from the UI immediately
+      setMaterials((prevMaterials) => prevMaterials.filter((item) => item.id !== materialId));
+    } catch (error) {
+      console.error("Error deleting material:", error);
+      alert("Failed to delete the material. Please try again.");
+    }
+  };
+  // ------------------------
+
   if (loading) {
     return <div className="text-center mt-32 text-gray-400">Loading your library...</div>;
   }
@@ -73,9 +93,19 @@ export default function Library() {
             <div 
               key={item.id} 
               onClick={() => handleOpenMaterial(item)}
-              className="bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
+              className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
             >
-              <div className="flex items-center gap-3 mb-4 text-primary">
+              {/* --- NEW DELETE BUTTON --- */}
+              <button
+                onClick={(e) => handleDelete(e, item.id)}
+                className="absolute top-4 right-4 p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors z-10"
+                title="Delete Material"
+              >
+                <Trash2 size={18} />
+              </button>
+              {/* ------------------------- */}
+
+              <div className="flex items-center gap-3 mb-4 text-primary pr-8">
                 {item.type === 'quiz' ? <FileQuestion size={24} /> : <BookOpen size={24} />}
                 <span className="font-bold uppercase tracking-wider text-xs bg-primary/10 px-3 py-1 rounded-full">
                   {item.type}
