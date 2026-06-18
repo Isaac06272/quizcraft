@@ -133,7 +133,6 @@ export default function Home() {
   };
 
   return (
-    // UPDATED: Removed perfectly centered alignment and added negative top margin (-mt-10) to shift everything slightly up.
     <div className="relative min-h-[75vh] flex flex-col items-center justify-center -mt-10 md:-mt-4">
       {/* Ambient Background Glows */}
       <div className="absolute top-0 left-[-5%] w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[120px] -z-10 pointer-events-none" />
@@ -151,30 +150,31 @@ export default function Home() {
           </div>
         </div>
       ) : (
-        <div className="w-full animate-fade-in-up">
+        <div className="w-full animate-fade-in-up flex flex-col items-center">
           
-          {/* UPDATED: Tightened margin-bottom (mb-8 instead of mb-16), removed padding-top */}
-          <div className="text-center max-w-4xl mx-auto mb-8">
-            
-            {/* UPDATED: Scaled text down slightly to fit better on standard laptop screens */}
-            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black mb-4 leading-tight tracking-tight">
+          <div className="text-center max-w-4xl mx-auto mb-6">
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black leading-tight tracking-tight">
               Master Any Subject with <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-violet-400 bg-300% animate-gradient">
                 AI-Powered Learning
               </span>
             </h1>
-            
-            {/* UPDATED: Reduced paragraph text size slightly to draw less focus away from the upload box */}
-            <p className="text-sm md:text-base text-gray-400 max-w-xl mx-auto leading-relaxed">
-              Upload your lecture slides, notes, or reading materials. We automatically extract the core concepts and generate interactive study sets.
-            </p>
           </div>
           
-          <UploadSection onStart={handleStartGeneration} />
+          {/* UPDATED: Upload Section now sits directly below the main heading */}
+          <div className="w-full">
+            <UploadSection onStart={handleStartGeneration} />
+          </div>
+
+          {/* UPDATED: Paragraph text moved to the bottom */}
+          <p className="text-sm md:text-base text-gray-500 max-w-xl mx-auto text-center mt-6 leading-relaxed">
+            Upload your lecture slides, notes, or reading materials. We automatically extract the core concepts and generate interactive study sets.
+          </p>
+
         </div>
       )}
 
-      {/* SAVE MATERIAL MODAL (Code Remains the Same) */}
+      {/* SAVE MATERIAL MODAL */}
       {saveModalData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
           <div className="bg-[#1a1333] border border-purple-900/50 rounded-3xl p-8 w-full max-w-lg shadow-[0_0_50px_rgba(139,92,246,0.15)] transform transition-all">
