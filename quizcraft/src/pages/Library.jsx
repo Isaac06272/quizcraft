@@ -3,16 +3,18 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2 } from 'lucide-react';
+import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle } from 'lucide-react';
 
 export default function Library() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
+  
+  // --- NEW: State to control the custom delete modal ---
+  const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
 
   useEffect(() => {
-    // If not logged in, send them home
     if (!currentUser) {
       navigate('/');
       return;
@@ -31,7 +33,6 @@ export default function Library() {
           fetchedMaterials.push({ id: doc.id, ...doc.data() });
         });
 
-        // Sort by newest first
         fetchedMaterials.sort((a, b) => b.createdAt?.toMillis() - a.createdAt?.toMillis());
         setMaterials(fetchedMaterials);
       } catch (error) {
@@ -52,32 +53,39 @@ export default function Library() {
     }
   };
 
-  // --- NEW DELETE LOGIC ---
-  const handleDelete = async (e, materialId) => {
-    // Stop the click event from triggering the card's handleOpenMaterial function
-    e.stopPropagation(); 
-    
-    const isConfirmed = window.confirm("Are you sure you want to permanently delete this material?");
-    if (!isConfirmed) return;
+  // --- UPDATED: Open the modal instead of the browser alert ---
+  const triggerDelete = (e, materialId) => {
+    e.stopPropagation(); // Prevents opening the quiz card
+    setDeleteModal({ isOpen: true, materialId: materialId });
+  };
+
+  const closeDeleteModal = () => {
+    setDeleteModal({ isOpen: false, materialId: null });
+  };
+
+  const confirmDelete = async () => {
+    const idToDelete = deleteModal.materialId;
+    if (!idToDelete) return;
 
     try {
-      await deleteDoc(doc(db, 'materials', materialId));
+      await deleteDoc(doc(db, 'materials', idToDelete));
       
-      // Update state to remove the item from the UI immediately
-      setMaterials((prevMaterials) => prevMaterials.filter((item) => item.id !== materialId));
+      // Update UI and close modal
+      setMaterials((prevMaterials) => prevMaterials.filter((item) => item.id !== idToDelete));
+      setDeleteModal({ isOpen: false, materialId: null });
     } catch (error) {
       console.error("Error deleting material:", error);
       alert("Failed to delete the material. Please try again.");
     }
   };
-  // ------------------------
+  // -----------------------------------------------------------
 
   if (loading) {
     return <div className="text-center mt-32 text-gray-400">Loading your library...</div>;
   }
 
   return (
-    <div className="max-w-5xl mx-auto mt-8 p-6">
+    <div className="max-w-5xl mx-auto mt-8 p-6 relative">
       <div className="border-b border-purple-900/30 pb-6 mb-8">
         <h2 className="text-4xl font-extrabold text-white">My Library</h2>
         <p className="text-gray-400 mt-2">All your generated quizzes and flashcards saved in one place.</p>
@@ -95,15 +103,14 @@ export default function Library() {
               onClick={() => handleOpenMaterial(item)}
               className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
             >
-              {/* --- NEW DELETE BUTTON --- */}
+              {/* Trash Icon Button triggers custom modal */}
               <button
-                onClick={(e) => handleDelete(e, item.id)}
+                onClick={(e) => triggerDelete(e, item.id)}
                 className="absolute top-4 right-4 p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors z-10"
                 title="Delete Material"
               >
                 <Trash2 size={18} />
               </button>
-              {/* ------------------------- */}
 
               <div className="flex items-center gap-3 mb-4 text-primary pr-8">
                 {item.type === 'quiz' ? <FileQuestion size={24} /> : <BookOpen size={24} />}
@@ -132,6 +139,43 @@ export default function Library() {
           ))}
         </div>
       )}
+
+      {/* --- NEW: CUSTOM DELETE MODAL OVERLAY --- */}
+      {deleteModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#1a1525] border border-purple-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(217,70,239,0.15)] transform transition-all">
+            
+            <div className="flex items-center gap-4 mb-4">
+              <div className="p-3 bg-red-500/10 rounded-full text-red-500">
+                <AlertTriangle size={24} />
+              </div>
+              <h3 className="text-xl font-bold text-white">Delete Material</h3>
+            </div>
+            
+            <p className="text-gray-400 mb-8 ml-2">
+              Are you sure you want to permanently delete this study material? This action cannot be undone.
+            </p>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={closeDeleteModal}
+                className="px-5 py-2.5 rounded-xl font-medium text-gray-300 hover:text-white hover:bg-gray-800 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDelete}
+                className="px-5 py-2.5 rounded-xl font-medium bg-red-600 hover:bg-red-700 text-white transition-colors shadow-lg shadow-red-600/20"
+              >
+                Yes, Delete
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
+      {/* -------------------------------------- */}
+
     </div>
   );
 }
