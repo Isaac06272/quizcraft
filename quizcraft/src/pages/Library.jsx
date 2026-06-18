@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react';
 import { db } from '../firebase';
-import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, deleteDoc, updateDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search, Folder, ChevronLeft } from 'lucide-react';
+import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search, Folder, ChevronLeft, FolderPlus, FolderOutput } from 'lucide-react';
 
 export default function Library() {
   const { currentUser } = useAuth();
@@ -15,9 +15,13 @@ export default function Library() {
   const [loading, setLoading] = useState(true);
   
   // States for UI navigation & modals
-  const [activeFolder, setActiveFolder] = useState(null); // null = viewing folders, object = viewing materials
+  const [activeFolder, setActiveFolder] = useState(null); 
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
+  
+  // --- NEW STATES FOR FOLDERS AND MOVING ---
+  const [createFolderModal, setCreateFolderModal] = useState({ isOpen: false, name: '' });
+  const [moveModal, setMoveModal] = useState({ isOpen: false, materialId: null, currentFolderId: null });
 
   useEffect(() => {
     if (!currentUser) {
@@ -27,14 +31,12 @@ export default function Library() {
 
     const fetchData = async () => {
       try {
-        // 1. Fetch all folders for this user
         const foldersQuery = query(collection(db, 'folders'), where("userId", "==", currentUser.uid));
         const foldersSnapshot = await getDocs(foldersQuery);
         const fetchedFolders = [];
         foldersSnapshot.forEach((doc) => fetchedFolders.push({ id: doc.id, ...doc.data() }));
         fetchedFolders.sort((a, b) => a.name.localeCompare(b.name));
 
-        // 2. Fetch all materials for this user
         const materialsQuery = query(collection(db, 'materials'), where("userId", "==", currentUser.uid));
         const materialsSnapshot = await getDocs(materialsQuery);
         const fetchedMaterials = [];
@@ -61,29 +63,78 @@ export default function Library() {
     }
   };
 
+  // --- DELETE LOGIC ---
   const triggerDelete = (e, materialId) => {
     e.stopPropagation();
     setDeleteModal({ isOpen: true, materialId: materialId });
   };
 
   const confirmDelete = async () => {
-    const idToDelete = deleteModal.materialId;
-    if (!idToDelete) return;
-
+    if (!deleteModal.materialId) return;
     try {
-      await deleteDoc(doc(db, 'materials', idToDelete));
-      setMaterials((prevMaterials) => prevMaterials.filter((item) => item.id !== idToDelete));
+      await deleteDoc(doc(db, 'materials', deleteModal.materialId));
+      setMaterials((prev) => prev.filter((item) => item.id !== deleteModal.materialId));
       setDeleteModal({ isOpen: false, materialId: null });
     } catch (error) {
       console.error("Error deleting material:", error);
-      alert("Failed to delete the material. Please try again.");
+    }
+  };
+
+  // --- NEW: CREATE FOLDER LOGIC ---
+  const handleCreateFolder = async () => {
+    if (!createFolderModal.name.trim()) return;
+    
+    try {
+      const newFolderName = createFolderModal.name.trim();
+      const folderRef = await addDoc(collection(db, 'folders'), {
+        name: newFolderName,
+        userId: currentUser.uid,
+        createdAt: serverTimestamp()
+      });
+      
+      const newFolders = [...folders, { id: folderRef.id, name: newFolderName }];
+      newFolders.sort((a, b) => a.name.localeCompare(b.name));
+      
+      setFolders(newFolders);
+      setCreateFolderModal({ isOpen: false, name: '' });
+    } catch (error) {
+      console.error("Error creating folder:", error);
+      alert("Failed to create folder.");
+    }
+  };
+
+  // --- NEW: MOVE MATERIAL LOGIC ---
+  const triggerMove = (e, material) => {
+    e.stopPropagation();
+    setMoveModal({ isOpen: true, materialId: material.id, currentFolderId: material.folderId || 'uncategorized' });
+  };
+
+  const confirmMove = async (targetFolderId, targetFolderName) => {
+    try {
+      const isUncategorized = targetFolderId === 'uncategorized';
+      
+      await updateDoc(doc(db, 'materials', moveModal.materialId), {
+        folderId: isUncategorized ? null : targetFolderId,
+        folderName: isUncategorized ? "Uncategorized" : targetFolderName
+      });
+
+      // Update local state so it immediately disappears from current folder
+      setMaterials((prev) => prev.map((m) => 
+        m.id === moveModal.materialId 
+          ? { ...m, folderId: isUncategorized ? null : targetFolderId, folderName: isUncategorized ? "Uncategorized" : targetFolderName } 
+          : m
+      ));
+      
+      setMoveModal({ isOpen: false, materialId: null, currentFolderId: null });
+    } catch (error) {
+      console.error("Error moving material:", error);
+      alert("Failed to move material.");
     }
   };
 
   // --- FILTERING LOGIC ---
   const uncategorizedMaterials = materials.filter(m => !m.folderId);
   
-  // If viewing root (folders), filter folders. If viewing a specific folder, filter materials.
   const filteredFolders = folders.filter((folder) => 
     folder.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -95,9 +146,7 @@ export default function Library() {
       )
     : [];
 
-  if (loading) {
-    return <div className="text-center mt-32 text-gray-400">Loading your library...</div>;
-  }
+  if (loading) return <div className="text-center mt-32 text-gray-400">Loading your library...</div>;
 
   return (
     <div className="max-w-5xl mx-auto mt-8 p-6 relative min-h-[60vh]">
@@ -119,14 +168,25 @@ export default function Library() {
               </div>
             </div>
           ) : (
-            <div className="animate-fade-in-up">
-              <h2 className="text-4xl font-extrabold text-white">My Library</h2>
-              <p className="text-gray-400 mt-2">Organize and review your generated study sets.</p>
+            <div className="animate-fade-in-up flex items-center gap-4">
+              <div>
+                <h2 className="text-4xl font-extrabold text-white">My Library</h2>
+                <p className="text-gray-400 mt-2">Organize and review your generated study sets.</p>
+              </div>
+              
+              {/* --- NEW: CREATE FOLDER ICON BUTTON --- */}
+              <button 
+                onClick={() => setCreateFolderModal({ isOpen: true, name: '' })}
+                className="p-3 bg-violet-500/10 hover:bg-violet-500/30 text-violet-400 border border-violet-500/20 hover:border-violet-500/50 rounded-xl transition-all shadow-[0_0_15px_rgba(139,92,246,0.1)]"
+                title="Create New Subject Folder"
+              >
+                <FolderPlus size={24} />
+              </button>
             </div>
           )}
         </div>
         
-        {/* Search Input UI */}
+        {/* Search Input */}
         <div className="relative w-full md:w-72">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
           <input 
@@ -148,8 +208,6 @@ export default function Library() {
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-              
-              {/* Map through mapped folders */}
               {filteredFolders.map((folder) => {
                 const itemCount = materials.filter(m => m.folderId === folder.id).length;
                 return (
@@ -167,7 +225,6 @@ export default function Library() {
                 );
               })}
 
-              {/* Legacy "Uncategorized" Folder (Only shows if older materials exist) */}
               {uncategorizedMaterials.length > 0 && (
                 <div 
                   onClick={() => { setActiveFolder({ id: 'uncategorized', name: 'Uncategorized' }); setSearchQuery(''); }}
@@ -180,7 +237,6 @@ export default function Library() {
                   <p className="text-gray-500 text-sm">{uncategorizedMaterials.length} {uncategorizedMaterials.length === 1 ? 'item' : 'items'}</p>
                 </div>
               )}
-
             </div>
           )}
         </>
@@ -202,15 +258,25 @@ export default function Library() {
                   onClick={() => handleOpenMaterial(item)}
                   className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
                 >
-                  <button
-                    onClick={(e) => triggerDelete(e, item.id)}
-                    className="absolute top-4 right-4 p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors z-10"
-                    title="Delete Material"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  {/* --- CARD ACTIONS (Top Right) --- */}
+                  <div className="absolute top-4 right-4 flex gap-1 z-10">
+                    <button
+                      onClick={(e) => triggerMove(e, item)}
+                      className="p-2 text-gray-500 hover:text-blue-400 hover:bg-blue-500/10 rounded-full transition-colors"
+                      title="Move Material"
+                    >
+                      <FolderOutput size={18} />
+                    </button>
+                    <button
+                      onClick={(e) => triggerDelete(e, item.id)}
+                      className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                      title="Delete Material"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
 
-                  <div className="flex items-center gap-3 mb-4 text-primary pr-8">
+                  <div className="flex items-center gap-3 mb-4 text-primary pr-16">
                     {item.type === 'quiz' ? <FileQuestion size={24} /> : <BookOpen size={24} />}
                     <span className="font-bold uppercase tracking-wider text-xs bg-primary/10 px-3 py-1 rounded-full">
                       {item.type}
@@ -240,10 +306,89 @@ export default function Library() {
         </div>
       )}
 
-      {/* CUSTOM DELETE MODAL OVERLAY */}
+      {/* --- MODALS --- */}
+
+      {/* 1. Create Folder Modal */}
+      {createFolderModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#1a1333] border border-purple-900/50 rounded-2xl p-6 w-full max-w-sm shadow-[0_0_30px_rgba(139,92,246,0.15)] animate-fade-in-up">
+            <h3 className="text-xl font-bold text-white mb-4">Create New Subject</h3>
+            <input
+              type="text"
+              autoFocus
+              value={createFolderModal.name}
+              onChange={(e) => setCreateFolderModal({ ...createFolderModal, name: e.target.value })}
+              placeholder="e.g., Biology 101"
+              className="w-full bg-[#0b0914] border border-white/10 text-white rounded-xl px-4 py-3 mb-6 focus:outline-none focus:border-violet-500 transition-all"
+            />
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setCreateFolderModal({ isOpen: false, name: '' })}
+                className="px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCreateFolder}
+                className="px-4 py-2 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold transition-all"
+              >
+                Create
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Move Material Modal */}
+      {moveModal.isOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="bg-[#1a1333] border border-purple-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(59,130,246,0.15)] animate-fade-in-up">
+            <h3 className="text-xl font-bold text-white mb-2">Move Material</h3>
+            <p className="text-gray-400 text-sm mb-4">Select a destination folder.</p>
+            
+            <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar mb-6">
+              {/* Option to move to Uncategorized */}
+              {moveModal.currentFolderId !== 'uncategorized' && (
+                <button
+                  onClick={() => confirmMove('uncategorized', 'Uncategorized')}
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-white/5 hover:border-gray-500 transition-all text-gray-300"
+                >
+                  <Folder size={18} className="text-gray-500" /> Uncategorized
+                </button>
+              )}
+
+              {/* Mapped Folders */}
+              {folders.filter(f => f.id !== moveModal.currentFolderId).map((folder) => (
+                <button
+                  key={folder.id}
+                  onClick={() => confirmMove(folder.id, folder.name)}
+                  className="w-full text-left flex items-center gap-3 p-3 rounded-xl border border-white/5 hover:bg-violet-500/10 hover:border-violet-500/50 transition-all text-gray-200"
+                >
+                  <Folder size={18} className="text-violet-400" /> {folder.name}
+                </button>
+              ))}
+              
+              {folders.length <= 1 && moveModal.currentFolderId !== 'uncategorized' && (
+                <p className="text-gray-500 text-sm text-center py-4">No other folders available.</p>
+              )}
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={() => setMoveModal({ isOpen: false, materialId: null, currentFolderId: null })}
+                className="px-4 py-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-colors font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 3. Delete Confirmation Modal */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="bg-[#1a1525] border border-purple-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(217,70,239,0.15)] transform transition-all">
+          <div className="bg-[#1a1525] border border-red-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(239,68,68,0.15)] transform transition-all">
             <div className="flex items-center gap-4 mb-4">
               <div className="p-3 bg-red-500/10 rounded-full text-red-500">
                 <AlertTriangle size={24} />
