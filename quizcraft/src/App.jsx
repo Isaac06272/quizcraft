@@ -1,14 +1,21 @@
 import Library from './pages/Library';
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link, NavLink } from 'react-router-dom';
 import Home from './pages/Home';
 import Quiz from './pages/Quiz';
 import Flashcards from './pages/Flashcards';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { logInWithGoogle, logOut } from './firebase';
 
-// Extract the Navbar into a sub-component so it can use the Auth hook
 function NavBar() {
   const { currentUser } = useAuth();
+
+  // Helper function to handle active state styles
+  const navLinkStyle = ({ isActive }) => 
+    `transition-all pb-1 ${
+      isActive 
+        ? "text-white border-b-2 border-primary drop-shadow-[0_0_8px_rgba(139,92,246,0.5)]" 
+        : "text-gray-400 hover:text-white"
+    }`;
 
   return (
     <nav className="relative w-full px-8 py-4 flex justify-between items-center bg-[#0f0a1c]/70 backdrop-blur-xl border-b border-white/5 sticky top-0 z-50 transition-all">
@@ -25,11 +32,15 @@ function NavBar() {
         </Link>
       </div>
       
-      {/* PERFECT CENTER: Nav Links */}
-      <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 gap-10 text-sm font-bold text-gray-400">
-        <Link to="/" className="hover:text-white transition-colors">Home</Link>
+      {/* PERFECT CENTER: Nav Links (Now with NavLink for active states!) */}
+      <div className="hidden md:flex absolute left-1/2 -translate-x-1/2 gap-10 text-sm font-bold">
+        <NavLink to="/" className={navLinkStyle} end>
+          Home
+        </NavLink>
         {currentUser && (
-          <Link to="/library" className="hover:text-white transition-colors">My Library</Link>
+          <NavLink to="/library" className={navLinkStyle}>
+            My Library
+          </NavLink>
         )}
       </div>
 
@@ -70,7 +81,6 @@ export default function App() {
   return (
     <AuthProvider>
       <Router>
-        {/* The double scrollbar is fixed here with bg-fixed and no overflow-x-hidden */}
         <div className="min-h-screen bg-gradient-to-br from-[#0a0710] via-[#221645] to-[#0a0710] bg-fixed text-white font-sans selection:bg-primary/30">
           <NavBar />
           <main className="container mx-auto px-4 py-12">

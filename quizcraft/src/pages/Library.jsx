@@ -3,16 +3,17 @@ import { db } from '../firebase';
 import { collection, query, where, getDocs, doc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle } from 'lucide-react';
+import { BookOpen, FileQuestion, Trophy, ArrowRight, Trash2, AlertTriangle, Search } from 'lucide-react';
 
 export default function Library() {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
-  
-  // --- NEW: State to control the custom delete modal ---
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, materialId: null });
+  
+  // --- NEW: Search State ---
+  const [searchQuery, setSearchQuery] = useState('');
 
   useEffect(() => {
     if (!currentUser) {
@@ -53,9 +54,8 @@ export default function Library() {
     }
   };
 
-  // --- UPDATED: Open the modal instead of the browser alert ---
   const triggerDelete = (e, materialId) => {
-    e.stopPropagation(); // Prevents opening the quiz card
+    e.stopPropagation();
     setDeleteModal({ isOpen: true, materialId: materialId });
   };
 
@@ -69,8 +69,6 @@ export default function Library() {
 
     try {
       await deleteDoc(doc(db, 'materials', idToDelete));
-      
-      // Update UI and close modal
       setMaterials((prevMaterials) => prevMaterials.filter((item) => item.id !== idToDelete));
       setDeleteModal({ isOpen: false, materialId: null });
     } catch (error) {
@@ -78,7 +76,11 @@ export default function Library() {
       alert("Failed to delete the material. Please try again.");
     }
   };
-  // -----------------------------------------------------------
+
+  // --- NEW: Filter materials based on search query ---
+  const filteredMaterials = materials.filter((item) => 
+    (item.title || "Untitled Material").toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   if (loading) {
     return <div className="text-center mt-32 text-gray-400">Loading your library...</div>;
@@ -86,24 +88,44 @@ export default function Library() {
 
   return (
     <div className="max-w-5xl mx-auto mt-8 p-6 relative">
-      <div className="border-b border-purple-900/30 pb-6 mb-8">
-        <h2 className="text-4xl font-extrabold text-white">My Library</h2>
-        <p className="text-gray-400 mt-2">All your generated quizzes and flashcards saved in one place.</p>
+      
+      {/* HEADER WITH SEARCH BAR */}
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-purple-900/30 pb-6 mb-8 gap-4">
+        <div>
+          <h2 className="text-4xl font-extrabold text-white">My Library</h2>
+          <p className="text-gray-400 mt-2">All your generated quizzes and flashcards saved in one place.</p>
+        </div>
+        
+        {/* Search Input UI */}
+        <div className="relative w-full md:w-72">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search materials..." 
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-[#1a1333] border border-purple-900/50 text-white placeholder-gray-500 text-sm rounded-xl pl-10 pr-4 py-2.5 focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary transition-all shadow-inner"
+          />
+        </div>
       </div>
 
+      {/* RENDER CONDITIONS */}
       {materials.length === 0 ? (
         <div className="text-center p-12 bg-card rounded-2xl border border-dashed border-purple-900/50">
           <p className="text-gray-400 text-lg">Your library is empty. Go generate some study materials!</p>
         </div>
+      ) : filteredMaterials.length === 0 ? (
+        <div className="text-center p-12 bg-card rounded-2xl border border-dashed border-purple-900/50">
+          <p className="text-gray-400 text-lg">No materials found matching "<span className="text-white font-bold">{searchQuery}</span>"</p>
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {materials.map((item) => (
+          {filteredMaterials.map((item) => (
             <div 
               key={item.id} 
               onClick={() => handleOpenMaterial(item)}
               className="relative bg-card border border-purple-900/50 rounded-2xl p-6 hover:border-primary transition-all cursor-pointer group hover:shadow-[0_0_20px_rgba(217,70,239,0.15)]"
             >
-              {/* Trash Icon Button triggers custom modal */}
               <button
                 onClick={(e) => triggerDelete(e, item.id)}
                 className="absolute top-4 right-4 p-2 text-gray-500 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors z-10"
@@ -140,7 +162,7 @@ export default function Library() {
         </div>
       )}
 
-      {/* --- NEW: CUSTOM DELETE MODAL OVERLAY --- */}
+      {/* CUSTOM DELETE MODAL OVERLAY */}
       {deleteModal.isOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
           <div className="bg-[#1a1525] border border-purple-900/50 rounded-2xl p-6 w-full max-w-md shadow-[0_0_30px_rgba(217,70,239,0.15)] transform transition-all">
@@ -174,7 +196,6 @@ export default function Library() {
           </div>
         </div>
       )}
-      {/* -------------------------------------- */}
 
     </div>
   );
