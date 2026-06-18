@@ -1,14 +1,45 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import UploadSection from '../components/UploadSection';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, where, getDocs } from 'firebase/firestore';
+import { FolderPlus, Save, Folder, Plus } from 'lucide-react';
 
 export default function Home() {
   const navigate = useNavigate();
-  const { currentUser } = useAuth(); // Check if user is logged in
+  const { currentUser } = useAuth();
+  
   const [isGenerating, setIsGenerating] = useState(false);
+  const [folders, setFolders] = useState([]);
+  const [saveModalData, setSaveModalData] = useState(null); 
+  const [selectedFolderId, setSelectedFolderId] = useState('');
+  const [newFolderName, setNewFolderName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (currentUser) {
+      const fetchFolders = async () => {
+        try {
+          const q = query(collection(db, 'folders'), where('userId', '==', currentUser.uid));
+          const snapshot = await getDocs(q);
+          const folderList = [];
+          snapshot.forEach((doc) => folderList.push({ id: doc.id, ...doc.data() }));
+          folderList.sort((a, b) => a.name.localeCompare(b.name));
+          
+          setFolders(folderList);
+          if (folderList.length > 0) {
+            setSelectedFolderId(folderList[0].id);
+          } else {
+            setSelectedFolderId('new');
+          }
+        } catch (error) {
+          console.error("Error fetching folders:", error);
+        }
+      };
+      fetchFolders();
+    }
+  }, [currentUser]);
 
   const handleStartGeneration = async (userSettings) => {
     setIsGenerating(true);
@@ -27,46 +58,86 @@ export default function Home() {
       if (!response.ok) throw new Error("Failed to generate content");
 
       const generatedData = await response.json();
-      let materialId = null;
 
-      // Save to Firestore if logged in
       if (currentUser) {
-        try {
-          const docRef = await addDoc(collection(db, 'materials'), {
-            userId: currentUser.uid,
-            title: userSettings.file.name,
-            type: userSettings.studyMode,
-            data: generatedData,
-            createdAt: serverTimestamp(),
-            score: 0, // Default score
-            totalItems: userSettings.itemCount
-          });
-          materialId = docRef.id; 
-        } catch (dbError) {
-          console.error("FIREBASE ERROR - Failed to save:", dbError);
-        }
-      }
-
-      // Navigate and pass the data PLUS the new database ID
-      if (userSettings.studyMode === 'quiz') {
-        navigate('/quiz', { state: { questions: generatedData, materialId, title: userSettings.file.name } });
+        setSaveModalData({ generatedData, userSettings });
+        setIsGenerating(false); 
       } else {
-        navigate('/flashcards', { state: { cards: generatedData, materialId, title: userSettings.file.name } });
+        navigate(
+          userSettings.studyMode === 'quiz' ? '/quiz' : '/flashcards', 
+          { state: { questions: generatedData, cards: generatedData, title: userSettings.file.name } }
+        );
       }
       
     } catch (error) {
       console.error("Generation Error:", error);
       alert("Something went wrong generating your material. Please try again.");
-    } finally {
       setIsGenerating(false);
     }
   };
 
+  const handleConfirmSave = async () => {
+    if (selectedFolderId === 'new' && !newFolderName.trim()) {
+      alert("Please enter a name for your new subject folder.");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      let finalFolderId = selectedFolderId;
+      let finalFolderName = "";
+
+      if (selectedFolderId === 'new') {
+        const folderRef = await addDoc(collection(db, 'folders'), {
+          name: newFolderName.trim(),
+          userId: currentUser.uid,
+          createdAt: serverTimestamp()
+        });
+        finalFolderId = folderRef.id;
+        finalFolderName = newFolderName.trim();
+        setFolders([...folders, { id: finalFolderId, name: finalFolderName }]);
+      } else {
+        const existingFolder = folders.find(f => f.id === selectedFolderId);
+        finalFolderName = existingFolder ? existingFolder.name : "Uncategorized";
+      }
+
+      const docRef = await addDoc(collection(db, 'materials'), {
+        userId: currentUser.uid,
+        folderId: finalFolderId,     
+        folderName: finalFolderName, 
+        title: saveModalData.userSettings.file.name,
+        type: saveModalData.userSettings.studyMode,
+        data: saveModalData.generatedData,
+        createdAt: serverTimestamp(),
+        score: 0,
+        totalItems: saveModalData.userSettings.itemCount
+      });
+
+      const isQuiz = saveModalData.userSettings.studyMode === 'quiz';
+      navigate(isQuiz ? '/quiz' : '/flashcards', { 
+        state: { 
+          questions: isQuiz ? saveModalData.generatedData : undefined,
+          cards: !isQuiz ? saveModalData.generatedData : undefined,
+          materialId: docRef.id, 
+          title: saveModalData.userSettings.file.name 
+        } 
+      });
+
+    } catch (error) {
+      console.error("FIREBASE ERROR - Failed to save material:", error);
+      alert("Failed to save to database. Proceeding without saving.");
+    } finally {
+      setIsSaving(false);
+      setSaveModalData(null);
+    }
+  };
+
   return (
-    <div className="relative min-h-[80vh] flex flex-col items-center justify-center">
+    // UPDATED: Removed perfectly centered alignment and added negative top margin (-mt-10) to shift everything slightly up.
+    <div className="relative min-h-[75vh] flex flex-col items-center justify-center -mt-10 md:-mt-4">
       {/* Ambient Background Glows */}
-      <div className="absolute top-[-10%] left-[-5%] w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[120px] -z-10 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-5%] w-[400px] h-[400px] bg-fuchsia-600/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
+      <div className="absolute top-0 left-[-5%] w-[500px] h-[500px] bg-violet-600/20 rounded-full blur-[120px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-0 right-[-5%] w-[400px] h-[400px] bg-fuchsia-600/20 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
       {isGenerating ? (
         <div className="flex flex-col items-center justify-center mt-12 space-y-8 bg-[#1a1333]/50 backdrop-blur-xl p-16 rounded-3xl border border-white/10 shadow-2xl">
@@ -81,18 +152,124 @@ export default function Home() {
         </div>
       ) : (
         <div className="w-full animate-fade-in-up">
-          <div className="text-center max-w-4xl mx-auto mb-16 pt-8">
-            <h1 className="text-5xl md:text-7xl font-black mb-6 leading-tight tracking-tight">
+          
+          {/* UPDATED: Tightened margin-bottom (mb-8 instead of mb-16), removed padding-top */}
+          <div className="text-center max-w-4xl mx-auto mb-8">
+            
+            {/* UPDATED: Scaled text down slightly to fit better on standard laptop screens */}
+            <h1 className="text-4xl md:text-5xl lg:text-6xl font-black mb-4 leading-tight tracking-tight">
               Master Any Subject with <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 via-fuchsia-400 to-violet-400 bg-300% animate-gradient">
                 AI-Powered Learning
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-gray-400 max-w-2xl mx-auto leading-relaxed">
+            
+            {/* UPDATED: Reduced paragraph text size slightly to draw less focus away from the upload box */}
+            <p className="text-sm md:text-base text-gray-400 max-w-xl mx-auto leading-relaxed">
               Upload your lecture slides, notes, or reading materials. We automatically extract the core concepts and generate interactive study sets.
             </p>
           </div>
+          
           <UploadSection onStart={handleStartGeneration} />
+        </div>
+      )}
+
+      {/* SAVE MATERIAL MODAL (Code Remains the Same) */}
+      {saveModalData && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+          <div className="bg-[#1a1333] border border-purple-900/50 rounded-3xl p-8 w-full max-w-lg shadow-[0_0_50px_rgba(139,92,246,0.15)] transform transition-all">
+            
+            <div className="flex items-center gap-4 mb-6 border-b border-white/10 pb-6">
+              <div className="p-3 bg-violet-500/10 rounded-full text-violet-400">
+                <FolderPlus size={28} />
+              </div>
+              <div>
+                <h3 className="text-2xl font-bold text-white tracking-tight">Save Material</h3>
+                <p className="text-gray-400 text-sm mt-1">Organize your newly generated study set.</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-bold text-gray-300 mb-3 uppercase tracking-wider">
+                  Select Subject Folder
+                </label>
+                <div className="space-y-2 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                  {folders.map((folder) => (
+                    <div 
+                      key={folder.id}
+                      onClick={() => setSelectedFolderId(folder.id)}
+                      className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all border ${
+                        selectedFolderId === folder.id 
+                          ? 'bg-violet-500/20 border-violet-500 shadow-inner' 
+                          : 'bg-white/5 border-transparent hover:bg-white/10'
+                      }`}
+                    >
+                      <Folder size={18} className={selectedFolderId === folder.id ? 'text-violet-400' : 'text-gray-500'} />
+                      <span className={selectedFolderId === folder.id ? 'text-white font-bold' : 'text-gray-300'}>
+                        {folder.name}
+                      </span>
+                    </div>
+                  ))}
+
+                  <div 
+                    onClick={() => setSelectedFolderId('new')}
+                    className={`flex items-center gap-3 p-4 rounded-xl cursor-pointer transition-all border ${
+                      selectedFolderId === 'new' 
+                        ? 'bg-fuchsia-500/20 border-fuchsia-500 shadow-inner' 
+                        : 'bg-white/5 border-transparent hover:bg-white/10'
+                    }`}
+                  >
+                    <Plus size={18} className={selectedFolderId === 'new' ? 'text-fuchsia-400' : 'text-gray-500'} />
+                    <span className={selectedFolderId === 'new' ? 'text-white font-bold' : 'text-gray-300'}>
+                      Create New Subject
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {selectedFolderId === 'new' && (
+                <div className="animate-fade-in-up">
+                  <label className="block text-sm font-bold text-gray-300 mb-2">Subject Name</label>
+                  <input
+                    type="text"
+                    value={newFolderName}
+                    onChange={(e) => setNewFolderName(e.target.value)}
+                    placeholder="e.g., Computer Architecture"
+                    className="w-full bg-[#0b0914] border border-white/10 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-fuchsia-500 focus:ring-1 focus:ring-fuchsia-500 transition-all placeholder-gray-600"
+                    autoFocus
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-3 mt-8 pt-6 border-t border-white/10">
+              <button
+                onClick={() => setSaveModalData(null)}
+                disabled={isSaving}
+                className="cursor-pointer px-5 py-2.5 rounded-xl font-bold text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmSave}
+                disabled={isSaving}
+                className="cursor-pointer flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold bg-white text-[#0f0a1c] hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.2)]"
+              >
+                {isSaving ? (
+                  <span className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-[#0f0a1c] border-t-transparent rounded-full animate-spin"></div>
+                    Saving...
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-2">
+                    <Save size={18} /> Save & Start
+                  </span>
+                )}
+              </button>
+            </div>
+
+          </div>
         </div>
       )}
     </div>
