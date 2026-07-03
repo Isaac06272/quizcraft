@@ -12,7 +12,6 @@ export default function Quiz() {
 
   const { questions, materialId, title, savedScore, isShuffled } = location.state || { questions: [] };
 
-  // Set the display state ONCE upon entering the quiz based on the library choice
   const [displayQuestions, setDisplayQuestions] = useState(() => {
     if (isShuffled && questions) {
       return shuffleArray(questions).map(q => ({
@@ -85,7 +84,6 @@ export default function Quiz() {
     }
   };
 
-  // Reverted entirely back to its original state
   const handleRestart = () => {
     setCurrentQuestionIndex(0);
     setSelectedAnswer(null);
@@ -143,11 +141,12 @@ export default function Quiz() {
   }
 
   return (
-    <div className="relative max-w-3xl mx-auto mt-8">
+    // UPDATED: Increased max-w-3xl to max-w-5xl and added px-4 so it doesn't touch the screen edges
+    <div className="relative w-full max-w-5xl mx-auto mt-6 md:mt-8 px-4">
       <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-violet-600/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[300px] h-[300px] bg-fuchsia-600/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
 
-      <div className="flex justify-between items-end mb-6 px-2">
+      <div className="flex justify-between items-end mb-4 px-2">
         <div>
           <span className="text-xs uppercase tracking-widest font-black text-violet-400">
             {isShuffled ? "Active Quiz (Shuffled)" : "Active Quiz"}
@@ -161,19 +160,22 @@ export default function Quiz() {
         </div>
       </div>
 
-      <div className="w-full h-2.5 bg-[#1a1333] border border-white/5 rounded-full mb-8 overflow-hidden shadow-inner">
+      <div className="w-full h-2.5 bg-[#1a1333] border border-white/5 rounded-full mb-6 overflow-hidden shadow-inner">
         <div 
           className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
           style={{ width: `${((currentQuestionIndex + 1) / displayQuestions.length) * 100}%` }}
         />
       </div>
 
-      <div className="bg-[#1a1333]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-8 md:p-12 shadow-[0_0_40px_rgba(0,0,0,0.3)] relative overflow-hidden">
-        <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-10 leading-relaxed">
+      {/* UPDATED: Tightened padding from p-12 to p-8 to save more vertical space */}
+      <div className="bg-[#1a1333]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-10 shadow-[0_0_40px_rgba(0,0,0,0.3)] relative overflow-hidden">
+        
+        {/* UPDATED: Tightened bottom margin */}
+        <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-8 leading-relaxed">
           {currentQuestion.question}
         </h3>
 
-        <div className="space-y-4">
+        <div className="space-y-3">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === option;
             const isCorrect = option === currentQuestion.correctAnswer;
@@ -198,9 +200,9 @@ export default function Quiz() {
                 key={index}
                 disabled={isAnswerSubmitted}
                 onClick={() => handleOptionClick(option)}
-                className={`cursor-pointer w-full text-left p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group ${optionStyles}`}
+                className={`cursor-pointer w-full text-left p-4 md:p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group ${optionStyles}`}
               >
-                <span className="pr-4 text-lg">{option}</span>
+                <span className="pr-4 text-base md:text-lg">{option}</span>
                 {isAnswerSubmitted && isCorrect && <CheckCircle2 className="text-emerald-400 shrink-0" size={24} />}
                 {isAnswerSubmitted && isWrongAndSelected && <XCircle className="text-rose-400 shrink-0" size={24} />}
               </button>
@@ -208,12 +210,13 @@ export default function Quiz() {
           })}
         </div>
 
-        <div className="mt-10 pt-8 border-t border-white/10 flex justify-end">
+        {/* UPDATED: Tightened top margin and padding */}
+        <div className="mt-8 pt-6 border-t border-white/10 flex justify-end">
           {!isAnswerSubmitted ? (
             <button
               onClick={handleSubmitAnswer}
               disabled={!selectedAnswer}
-              className={`cursor-pointer px-8 py-4 rounded-xl font-black text-lg transition-all ${
+              className={`cursor-pointer px-8 py-3 md:py-4 rounded-xl font-black text-lg transition-all ${
                 selectedAnswer 
                   ? "bg-white text-[#0f0a1c] hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:-translate-y-1" 
                   : "bg-white/5 text-gray-500 cursor-not-allowed"
@@ -224,7 +227,7 @@ export default function Quiz() {
           ) : (
             <button
               onClick={handleNextQuestion}
-              className="cursor-pointer flex items-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-lg hover:shadow-[0_0_25px_rgba(217,70,239,0.4)] hover:-translate-y-1 transition-all"
+              className="cursor-pointer flex items-center gap-2 px-8 py-3 md:py-4 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-lg hover:shadow-[0_0_25px_rgba(217,70,239,0.4)] hover:-translate-y-1 transition-all"
             >
               {currentQuestionIndex + 1 === displayQuestions.length ? "Finish Quiz" : "Next Question"} 
               <ArrowRight size={20} />
