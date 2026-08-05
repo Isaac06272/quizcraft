@@ -5,6 +5,7 @@ import Quiz from './pages/Quiz';
 import Flashcards from './pages/Flashcards';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { logInWithGoogle, logOut } from './firebase';
+import logo from './assets/icons.svg';
 
 function NavBar() {
   const { currentUser } = useAuth();
@@ -23,9 +24,11 @@ function NavBar() {
       {/* Left Area: Logo */}
       <div className="flex-1 flex justify-start">
         <Link to="/" className="flex items-center gap-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 to-fuchsia-600 flex items-center justify-center font-black text-xl shadow-[0_0_20px_rgba(139,92,246,0.3)] group-hover:shadow-[0_0_25px_rgba(217,70,239,0.5)] transition-all duration-300">
-            Q
-          </div>
+          <img
+          src={"/icons.svg"}
+          alt="QuizCraft Logo"
+          className="w-10 h-10 object-contain transition-transform duration-300 group-hover:scale-110"
+        />
           <span className="text-2xl font-extrabold tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-400">
             QuizCraft
           </span>
