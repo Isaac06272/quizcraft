@@ -1,31 +1,313 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,100..1000;1,9..40,100..1000&family=Fraunces:ital,opsz,wght@0,9..144,100..900;1,9..144,100..900&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&display=swap');
 @config "../tailwind.config.js";
 
 :root {
-  --background: #0f0a1c; /* Deep rich navy/purple */
-  --card: #1a1333;      /* Slightly lighter surface */
-  --primary: #8b5cf6;   /* Vibrant violet */
-  --accent: #d946ef;    /* Fuchsia/Pink */
-  --lavender: #d8b4e2;  /* Soft lavender from your image */
+  --bg: #F5F0E8;
+  --ink: #1C1A17;
+  --ink-soft: #3D3A36;
+  --verdigris: #4A7C7C;
+  --saffron: #E8A838;
+  --charcoal: #2D2A26;
+  --vellum: #FAF6F0;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 body {
-  background-color: var(--background);
-  color: #ffffff;
+  font-family: 'DM Sans', sans-serif;
+  background-color: var(--bg);
+  color: var(--ink);
+  line-height: 1.7;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
   overflow-x: hidden;
 }
 
-/* Custom Sleek Scrollbar */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 8px;
+  width: 10px;
+  height: 10px;
 }
 ::-webkit-scrollbar-track {
-  background: var(--background);
+  background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #3b2866;
-  border-radius: 10px;
+  background: var(--verdigris);
+  border-radius: 8px;
+  border: 2px solid var(--bg);
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--primary);
+  background: var(--verdigris-light);
+}
+
+/* Selection */
+::selection {
+  background: var(--saffron);
+  color: var(--ink);
+}
+
+/* Focus visible for accessibility */
+:focus-visible {
+  outline: 2px solid var(--saffron);
+  outline-offset: 2px;
+}
+
+/* Base utility classes */
+.font-display {
+  font-family: 'Fraunces', serif;
+}
+.font-body {
+  font-family: 'DM Sans', sans-serif;
+}
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Paper texture background */
+.bg-parchment-grain {
+  background-image: var(--tw-bg-parchment-grain);
+  background-repeat: repeat;
+}
+
+/* Verdigris texture for card backs */
+.bg-verdigris-texture {
+  background-image: var(--tw-bg-verdigris-texture);
+  background-repeat: repeat;
+  opacity: 0.06;
+}
+
+/* Stagger delays for animations */
+.delay-1 { animation-delay: 0.05s; }
+.delay-2 { animation-delay: 0.1s; }
+.delay-3 { animation-delay: 0.15s; }
+.delay-4 { animation-delay: 0.2s; }
+.delay-5 { animation-delay: 0.25s; }
+.delay-6 { animation-delay: 0.3s; }
+
+/* Forge button styles */
+.btn-forge {
+  @apply relative px-8 py-4 rounded-tool font-body font-bold text-label uppercase tracking-widest text-ink bg-saffron;
+  @apply shadow-[0_4px_16px_-2px_rgba(232,168,56,0.4)];
+  @apply transition-all duration-base ease-craft;
+  @apply hover:shadow-forge hover:-translate-y-1 hover:bg-saffron-light;
+  @apply active:scale-[0.98] active:shadow-paper-pressed;
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-saffron focus-visible:ring-offset-2 focus-visible:ring-offset-parchment;
+}
+
+.btn-forge:disabled {
+  @apply opacity-50 cursor-not-allowed hover:shadow-none hover:translate-y-0 hover:bg-saffron;
+}
+
+.btn-ghost {
+  @apply px-6 py-3 rounded-tool font-body font-medium text-label uppercase tracking-wider text-ink-soft bg-transparent;
+  @apply transition-all duration-base ease-craft;
+  @apply hover:bg-vellum hover:text-ink;
+  @apply active:scale-[0.98];
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-verdigris focus-visible:ring-offset-2 focus-visible:ring-offset-parchment;
+}
+
+.btn-verdigris {
+  @apply px-6 py-3 rounded-tool font-body font-bold text-label uppercase tracking-wider text-parchment bg-verdigris;
+  @apply transition-all duration-base ease-craft;
+  @apply hover:bg-verdigris-light hover:shadow-[0_4px_16px_-2px_rgba(74,124,124,0.4)] hover:-translate-y-1;
+  @apply active:scale-[0.98];
+  @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-verdigris focus-visible:ring-offset-2 focus-visible:ring-offset-parchment;
+}
+
+/* Input styles */
+.input-field {
+  @apply w-full px-4 py-3 rounded-tool font-body text-base text-ink bg-vellum border-2 border-transparent;
+  @apply placeholder:text-ink-soft placeholder:opacity-50;
+  @apply transition-all duration-fast ease-craft;
+  @apply hover:border-parchment-dim;
+  @apply focus:outline-none focus:border-saffron focus:ring-2 focus:ring-saffron/20 focus:bg-white;
+  @apply disabled:opacity-50 disabled:cursor-not-allowed;
+}
+
+/* Card base */
+.card-paper {
+  @apply bg-white/80 backdrop-blur-sm border border-parchment-dim rounded-card shadow-paper overflow-hidden;
+  @apply transition-all duration-base ease-craft;
+}
+
+.card-paper:hover {
+  @apply shadow-paper-hover border-verdigris/30;
+  @apply -translate-y-0.5;
+}
+
+/* Card grid utilities */
+.card-grid {
+  @apply grid gap-6 sm:gap-8;
+}
+
+.card-grid-2 {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8;
+}
+
+.card-grid-3 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8;
+}
+
+/* Tool Rack styles */
+.tool-rack {
+  @apply bg-charcoal-wash/95 backdrop-blur-md border-r border-parchment-dim/20;
+}
+
+.tool-rack-item {
+  @apply flex items-center gap-3 px-4 py-3 rounded-tool font-body text-sm font-medium text-parchment/80;
+  @apply transition-all duration-fast ease-craft;
+  @apply hover:bg-parchment/10 hover:text-parchment;
+}
+
+.tool-rack-item.active {
+  @apply bg-verdigris/20 text-saffron border-l-2 border-saffron;
+  @apply shadow-[inset_2px_0_0_0_var(--saffron)];
+}
+
+.tool-rack-item:focus-visible {
+  @apply outline-none ring-2 ring-saffron ring-offset-2 ring-offset-charcoal-wash;
+}
+
+/* Status badge */
+.badge {
+  @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-tool font-mono text-xs font-medium;
+}
+
+.badge-quiz {
+  @apply bg-verdigris/15 text-verdigris border border-verdigris/30;
+}
+
+.badge-flashcard {
+  @apply bg-saffron/15 text-saffron-dim border border-saffron/30;
+}
+
+/* Ember particle */
+.ember {
+  @apply absolute pointer-events-none text-saffron;
+  animation: ember-rise 1.5s ease-out forwards, ember-drift 2s ease-in-out infinite;
+}
+
+/* Forge progress bar */
+.forge-progress {
+  @apply h-2 bg-charcoal-wash/30 rounded-full overflow-hidden;
+}
+
+.forge-progress-fill {
+  @apply h-full bg-gradient-to-r from-saffron via-saffron-light to-saffron rounded-full;
+  @apply animate-forge-heat transform-gpu;
+  transform-origin: left center;
+}
+
+/* Modal overlay */
+.modal-overlay {
+  @apply fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/70 backdrop-blur-sm;
+  @apply animate-slide-up;
+}
+
+.modal-surface {
+  @apply w-full max-w-lg bg-white rounded-modal shadow-[0_20px_60px_-8px_rgba(28,26,23,0.3)];
+  @apply border border-parchment-dim overflow-hidden;
+  @apply animate-slide-up;
+}
+
+/* Empty state */
+.empty-state {
+  @apply text-center py-16 px-6;
+}
+
+.empty-state-icon {
+  @apply w-16 h-16 mx-auto mb-4 text-parchment-dim/50;
+}
+
+.empty-state-title {
+  @apply font-display text-display-sm text-ink mb-2;
+}
+
+.empty-state-text {
+  @apply font-body text-body-base text-ink-soft max-w-md mx-auto;
+}
+
+/* Page container */
+.page-shell {
+  @apply min-h-screen bg-parchment bg-parchment-grain;
+}
+
+.page-main {
+  @apply flex-1 w-full max-w-[72ch] mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12;
+}
+
+/* Scrollbar hide utility */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-forge-heat,
+  .animate-ember-rise,
+  .animate-ember-drift,
+  .animate-status-pulse,
+  .animate-slide-up,
+  .animate-slide-in-left,
+  .animate-flip-in,
+  .animate-shimmer {
+    animation: none !important;
+  }
+  .card-paper:hover {
+    @apply translate-y-0;
+  }
+  .btn-forge:hover {
+    @apply translate-y-0;
+  }
+  .btn-verdigris:hover {
+    @apply translate-y-0;
+  }
+}
+
+/* Print styles */
+@media print {
+  .tool-rack,
+  .btn-forge,
+  .btn-ghost,
+  .btn-verdigris,
+  .modal-overlay {
+    display: none !important;
+  }
+  .workshop-main {
+    @apply max-w-none px-0;
+  }
+  body {
+    @apply bg-white text-black;
+  }
 }

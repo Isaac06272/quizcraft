@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { Trophy, ArrowRight, CheckCircle2, XCircle, RotateCcw, Home as HomeIcon } from 'lucide-react';
+import { Trophy, ArrowRight, CheckCircle2, XCircle, RotateCcw, Home as HomeIcon, RotateCw, ArrowLeft } from 'lucide-react';
 
 const shuffleArray = (array) => [...array].sort(() => Math.random() - 0.5);
 
@@ -30,13 +30,15 @@ export default function Quiz() {
 
   if (!displayQuestions || displayQuestions.length === 0) {
     return (
-      <div className="relative flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-violet-600/20 rounded-full blur-[100px] -z-10" />
-        <div className="text-center max-w-md mx-auto p-10 bg-[#1a1333]/80 backdrop-blur-xl rounded-3xl border border-white/10 shadow-2xl">
-          <h3 className="text-2xl font-bold text-white mb-3">No Quiz Found</h3>
-          <p className="text-gray-400 mb-8">Please upload a document on the home page or select a quiz from your library.</p>
-          <Link to="/" className="inline-flex items-center justify-center gap-2 w-full py-4 rounded-xl bg-white text-[#0f0a1c] font-bold hover:bg-gray-200 transition-all">
-            <HomeIcon size={18} /> Return Home
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="card-paper max-w-md mx-auto p-10 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 bg-saffron/10 text-saffron-dim rounded-tool flex items-center justify-center">
+            <RotateCw size={28} />
+          </div>
+          <h3 className="font-display text-display-sm text-ink mb-3">No Quiz Forged</h3>
+          <p className="font-body text-body-base text-ink-soft mb-8">Forge a quiz from your documents on the workbench, or select one from your rack.</p>
+          <Link to="/" className="btn-forge inline-flex items-center justify-center gap-2 w-full">
+            <HomeIcon size={18} /> Return to Workbench
           </Link>
         </div>
       </div>
@@ -62,7 +64,7 @@ export default function Quiz() {
   }, [isFinished, materialId, score, savedScore]);
 
   const handleOptionClick = (option) => {
-    if (isAnswerSubmitted) return; 
+    if (isAnswerSubmitted) return;
     setSelectedAnswer(option);
   };
 
@@ -94,105 +96,124 @@ export default function Quiz() {
 
   if (isFinished) {
     const percentage = Math.round((score / displayQuestions.length) * 100);
-    
+
     return (
-      <div className="relative max-w-2xl mx-auto mt-12 p-10 bg-[#1a1333]/80 backdrop-blur-xl rounded-3xl border border-white/10 text-center shadow-[0_0_50px_rgba(0,0,0,0.5)] overflow-hidden">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-violet-600 via-fuchsia-500 to-violet-600" />
-        <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[300px] h-[300px] bg-violet-500/20 rounded-full blur-[80px] -z-10" />
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
+        <div className="card-paper max-w-2xl w-full p-10 relative overflow-hidden animate-slide-up">
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-saffron via-verdigris to-saffron" />
 
-        <div className="w-24 h-24 bg-yellow-500/10 text-yellow-400 rounded-full flex items-center justify-center mx-auto mb-6 border border-yellow-500/30 shadow-[0_0_30px_rgba(234,179,8,0.2)]">
-          <Trophy size={48} />
-        </div>
-
-        <h2 className="text-4xl font-black text-white mb-2 tracking-tight">Quiz Completed!</h2>
-        <p className="text-violet-300 font-medium mb-8 truncate max-w-md mx-auto">{title || "Untitled Assessment"}</p>
-
-        <div className="bg-[#0f0a1c] border border-white/5 rounded-2xl p-8 max-w-sm mx-auto mb-10 shadow-inner">
-          <div className="text-6xl font-black text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400 mb-2">
-            {score} <span className="text-3xl text-gray-600">/ {displayQuestions.length}</span>
+          <div className="w-20 h-20 mx-auto mb-6 bg-saffron/10 text-saffron-dim rounded-tool flex items-center justify-center border border-saffron/20 shadow-[0_0_30px_-4px_rgba(232,168,56,0.3)]">
+            <Trophy size={40} />
           </div>
-          <p className="text-base font-bold text-gray-400 uppercase tracking-widest">
-            Score: <span className="text-white">{percentage}%</span>
-          </p>
-          {savedScore !== undefined && score > savedScore && (
-            <div className="mt-4 text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 py-1.5 px-4 rounded-full inline-block">
-              🎉 New Best Score! (Previous: {savedScore})
-            </div>
-          )}
-        </div>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <button 
-            onClick={handleRestart} 
-            className="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white font-bold transition-all"
-          >
-            <RotateCcw size={18} /> Retake
-          </button>
-          
-          <button 
-            onClick={() => navigate('/library')} 
-            className="cursor-pointer flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white text-[#0f0a1c] font-black hover:bg-gray-200 transition-all shadow-[0_0_20px_rgba(255,255,255,0.1)] hover:shadow-[0_0_30px_rgba(255,255,255,0.3)]"
-          >
-            Back to Library <ArrowRight size={18} />
-          </button>
+          <h2 className="font-display text-display-md text-ink mb-2 text-center">Quiz Complete</h2>
+          <p className="font-body text-body-base text-ink-soft text-center mb-8 truncate max-w-md mx-auto">{title || "Untitled Assessment"}</p>
+
+          <div className="bg-charcoal-wash/50 border border-parchment-dim rounded-surface p-8 max-w-md mx-auto mb-10">
+            <div className="font-display text-5xl text-ink mb-2 text-center">
+              <span className="text-saffron">{score}</span> <span className="text-ink-soft">/ {displayQuestions.length}</span>
+            </div>
+            <p className="font-label text-center text-ink-soft">
+              Score: <span className="text-ink">{percentage}%</span>
+            </p>
+            {savedScore !== undefined && score > savedScore && (
+              <div className="mt-4 text-center">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-tool font-mono text-xs font-medium bg-saffron/15 text-saffron-dim border border-saffron/30">
+                  <span className="relative">
+                    <span className="absolute inset-0 bg-saffron/20 rounded-full animate-pulse"></span>
+                    <span className="relative">New Best Score!</span>
+                  </span>
+                  <span>(Previous: {savedScore})</span>
+                </span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <button
+              onClick={handleRestart}
+              className="btn-ghost flex items-center justify-center gap-2"
+            >
+              <RotateCcw size={18} /> Retake
+            </button>
+
+            <button
+              onClick={() => navigate('/library')}
+              className="btn-verdigris flex items-center justify-center gap-2"
+            >
+              Back to Rack <ArrowRight size={18} />
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    // UPDATED: Increased max-w-3xl to max-w-5xl and added px-4 so it doesn't touch the screen edges
-    <div className="relative w-full max-w-5xl mx-auto mt-6 md:mt-8 px-4">
-      <div className="absolute top-[20%] left-[-10%] w-[400px] h-[400px] bg-violet-600/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[300px] h-[300px] bg-fuchsia-600/10 rounded-full blur-[100px] -z-10 pointer-events-none" />
-
-      <div className="flex justify-between items-end mb-4 px-2">
-        <div>
-          <span className="text-xs uppercase tracking-widest font-black text-violet-400">
+    <div className="relative w-full max-w-5xl mx-auto px-4">
+      {/* Header */}
+      <div className="flex justify-between items-end mb-6">
+        <div className="animate-slide-in-left">
+          <span className="font-label text-verdigris mb-1 block">
             {isShuffled ? "Active Quiz (Shuffled)" : "Active Quiz"}
           </span>
-          <h1 className="text-xl font-bold text-white mt-1 truncate max-w-xs md:max-w-md" title={title}>
+          <h1 className="font-display text-display-sm text-ink truncate max-w-xs md:max-w-md" title={title}>
             {title || "Study Assessment"}
           </h1>
         </div>
-        <div className="text-sm font-bold text-gray-400 bg-[#1a1333]/80 backdrop-blur-md border border-white/10 px-4 py-2 rounded-xl">
-          Question <span className="text-white">{currentQuestionIndex + 1}</span> / {displayQuestions.length}
+        <div className="bg-charcoal-wash/50 border border-parchment-dim rounded-tool px-4 py-2 font-body text-sm font-bold text-ink-soft">
+          Question <span className="text-ink">{currentQuestionIndex + 1}</span> / {displayQuestions.length}
         </div>
       </div>
 
-      <div className="w-full h-2.5 bg-[#1a1333] border border-white/5 rounded-full mb-6 overflow-hidden shadow-inner">
-        <div 
-          className="h-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500 ease-out"
+      {/* Progress Bar */}
+      <div className="w-full h-2 bg-charcoal-wash/30 rounded-full mb-8 overflow-hidden">
+        <div
+          className="h-full bg-gradient-to-r from-verdigris to-saffron transition-all duration-500 ease-craft"
           style={{ width: `${((currentQuestionIndex + 1) / displayQuestions.length) * 100}%` }}
         />
       </div>
 
-      {/* UPDATED: Tightened padding from p-12 to p-8 to save more vertical space */}
-      <div className="bg-[#1a1333]/80 backdrop-blur-xl border border-white/10 rounded-3xl p-6 md:p-10 shadow-[0_0_40px_rgba(0,0,0,0.3)] relative overflow-hidden">
-        
-        {/* UPDATED: Tightened bottom margin */}
-        <h3 className="text-2xl md:text-3xl font-extrabold text-white mb-8 leading-relaxed">
+      {/* Question Card */}
+      <div className="card-paper p-6 md:p-8 animate-slide-up relative overflow-hidden">
+        {/* Question */}
+        <h3 className="font-display text-display-sm text-ink mb-8 leading-snug">
           {currentQuestion.question}
         </h3>
 
+        {/* Options */}
         <div className="space-y-3">
           {currentQuestion.options.map((option, index) => {
             const isSelected = selectedAnswer === option;
             const isCorrect = option === currentQuestion.correctAnswer;
             const isWrongAndSelected = isSelected && !isCorrect;
 
-            let optionStyles = "border-white/10 bg-white/5 text-gray-300 hover:border-violet-500/50 hover:bg-violet-500/10";
-            
+            let optionStyles = `
+              border-parchment-dim bg-vellum text-ink-soft
+              hover:border-verdigris/50 hover:bg-verdigris/5
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-verdigris focus-visible:ring-offset-2 focus-visible:ring-offset-white
+            `;
+
             if (isAnswerSubmitted) {
               if (isCorrect) {
-                optionStyles = "border-emerald-500 bg-emerald-500/10 text-emerald-300 font-bold shadow-[0_0_20px_rgba(16,185,129,0.1)]";
+                optionStyles = `
+                  border-verdigris bg-verdigris/10 text-verdigris font-bold
+                  shadow-[0_0_20px_-4px_rgba(74,124,124,0.2)]
+                `;
               } else if (isWrongAndSelected) {
-                optionStyles = "border-rose-500 bg-rose-500/10 text-rose-300 font-bold";
+                optionStyles = `
+                  border-rose-500 bg-rose-500/10 text-rose-600 font-bold
+                `;
               } else {
-                optionStyles = "border-white/5 bg-transparent text-gray-500 opacity-50 cursor-not-allowed";
+                optionStyles = `
+                  border-parchment-dim/50 bg-transparent text-ink-soft/50 cursor-not-allowed
+                `;
               }
             } else if (isSelected) {
-              optionStyles = "border-violet-500 bg-violet-500/20 text-white font-bold shadow-[0_0_20px_rgba(139,92,246,0.2)]";
+              optionStyles = `
+                border-saffron bg-saffron/15 text-ink font-bold
+                shadow-[0_0_20px_-4px_rgba(232,168,56,0.2)]
+              `;
             }
 
             return (
@@ -200,36 +221,45 @@ export default function Quiz() {
                 key={index}
                 disabled={isAnswerSubmitted}
                 onClick={() => handleOptionClick(option)}
-                className={`cursor-pointer w-full text-left p-4 md:p-5 rounded-2xl border transition-all duration-300 flex items-center justify-between group ${optionStyles}`}
+                className={`
+                  cursor-pointer w-full text-left p-4 md:p-5 rounded-tool border-2 transition-all duration-base ease-craft
+                  flex items-center justify-between group ${optionStyles}
+                `}
               >
-                <span className="pr-4 text-base md:text-lg">{option}</span>
-                {isAnswerSubmitted && isCorrect && <CheckCircle2 className="text-emerald-400 shrink-0" size={24} />}
-                {isAnswerSubmitted && isWrongAndSelected && <XCircle className="text-rose-400 shrink-0" size={24} />}
+                <span className="pr-4 text-base md:text-lg font-body">{option}</span>
+                {isAnswerSubmitted && isCorrect && (
+                  <CheckCircle2 className="text-verdigris shrink-0" size={24} aria-label="Correct answer" />
+                )}
+                {isAnswerSubmitted && isWrongAndSelected && (
+                  <XCircle className="text-rose-500 shrink-0" size={24} aria-label="Incorrect answer" />
+                )}
               </button>
             );
           })}
         </div>
 
-        {/* UPDATED: Tightened top margin and padding */}
-        <div className="mt-8 pt-6 border-t border-white/10 flex justify-end">
+        {/* Action Buttons */}
+        <div className="mt-8 pt-6 border-t border-parchment-dim flex justify-end">
           {!isAnswerSubmitted ? (
             <button
               onClick={handleSubmitAnswer}
               disabled={!selectedAnswer}
-              className={`cursor-pointer px-8 py-3 md:py-4 rounded-xl font-black text-lg transition-all ${
-                selectedAnswer 
-                  ? "bg-white text-[#0f0a1c] hover:bg-gray-200 shadow-[0_0_20px_rgba(255,255,255,0.2)] hover:-translate-y-1" 
-                  : "bg-white/5 text-gray-500 cursor-not-allowed"
-              }`}
+              className={`
+                cursor-pointer px-8 py-3 md:py-4 rounded-tool font-bold text-lg transition-all duration-base ease-craft
+                ${selectedAnswer
+                  ? 'btn-forge'
+                  : 'bg-vellum text-ink-soft cursor-not-allowed'
+                }
+              `}
             >
               Submit Answer
             </button>
           ) : (
             <button
               onClick={handleNextQuestion}
-              className="cursor-pointer flex items-center gap-2 px-8 py-3 md:py-4 rounded-xl bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white font-black text-lg hover:shadow-[0_0_25px_rgba(217,70,239,0.4)] hover:-translate-y-1 transition-all"
+              className="btn-verdigris flex items-center gap-2"
             >
-              {currentQuestionIndex + 1 === displayQuestions.length ? "Finish Quiz" : "Next Question"} 
+              {currentQuestionIndex + 1 === displayQuestions.length ? "Finish Quiz" : "Next Question"}
               <ArrowRight size={20} />
             </button>
           )}
