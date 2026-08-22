@@ -156,9 +156,9 @@ export default function Library() {
   );
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-6 min-h-[60vh]">
+    <div className="max-w-5xl mx-auto px-4 py-4 min-h-[60vh]">
       {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-parchment-dim pb-4 mb-6 gap-4 transition-all">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-parchment-dim pb-3 mb-4 gap-4 transition-all">
         <div className="flex-1">
           {activeFolder ? (
             <div className="animate-slide-up">
@@ -223,10 +223,10 @@ export default function Library() {
         {/* Search Input */}
         {activeFolder && (
           <div className="relative w-full md:w-72">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft/50 pointer-events-none" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft/50 pointer-events-none" size={16} />
             <input
               type="text"
-              placeholder={`Search in ${activeFolder?.name || 'subjects'}...`}
+              placeholder={`     Search in ${activeFolder?.name || 'subjects'}...`}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="input-field pl-10"
@@ -344,9 +344,6 @@ export default function Library() {
 
                     <div className="flex items-center gap-3 mb-3 text-verdigris pr-16">
                       {item.type === 'quiz' ? <FileQuestion size={20} /> : <BookOpen size={20} />}
-                      <span className={`badge ${item.type === 'quiz' ? 'badge-quiz' : 'badge-flashcard'}`}>
-                        {item.type}
-                      </span>
                     </div>
 
                     <h3 className="font-display text-display-sm text-ink mb-2 truncate" title={item.title}>

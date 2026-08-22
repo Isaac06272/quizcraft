@@ -109,8 +109,8 @@ export default function Flashcards() {
                 </span>
               </div>
 
-              <div className="relative z-10 flex-1 w-full flex items-center justify-center overflow-hidden">
-                <div className="w-full max-h-full overflow-y-auto scrollbar-hide px-6 py-4 pt-12">
+              <div className="relative z-10 flex-1 w-full flex items-center justify-center overflow-hidden p-6 pt-12">
+                <div className="w-full max-h-full overflow-y-auto scrollbar-hide">
                   <p className="font-body text-body-lg md:text-display-sm text-center text-vellum leading-relaxed whitespace-pre-wrap break-words">
                     {currentCard.answer}
                   </p>

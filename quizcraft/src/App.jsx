@@ -34,7 +34,7 @@ function Navbar() {
 
   return (
     <header className="sticky top-0 z-50 bg-parchment/90 backdrop-blur-md border-b border-parchment-dim/30">
-      <div className="flex items-center justify-between h-16 px-4 md:px-6 lg:px-8">
+      <div className="flex items-center justify-between h-14 px-4 md:px-6 lg:px-8">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 flex-shrink-0" aria-label="QuizCraft Home">
           <svg width="32" height="32" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
@@ -202,7 +202,7 @@ export default function App() {
       <Router>
         <div className="page-shell font-body min-h-screen" style={{ backgroundColor: '#F5F0E8' }}>
           <Navbar />
-          <main className="pt-16 pb-8">
+          <main className="pt-14 pb-6">
             <div className="page-main">
               <Routes>
                 <Route path="/" element={<Home />} />
